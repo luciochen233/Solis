@@ -20,15 +20,22 @@ type Server struct {
 	db       *db.DB
 	sessions *sessionStore
 	limiter  *rateLimiter
+	catalog  []config.CatalogCategory
 }
 
 func New(cfg *config.Config, database *db.DB) *Server {
 	ttl := time.Duration(cfg.Admin.SessionHours) * time.Hour
+	cat, err := config.LoadCatalog("catalog.json")
+	if err != nil {
+		log.Printf("Warning: failed to load catalog.json: %v. Using empty catalog.", err)
+		cat = []config.CatalogCategory{}
+	}
 	return &Server{
 		cfg:      cfg,
 		db:       database,
 		sessions: newSessionStore(ttl),
 		limiter:  newRateLimiter(2 * time.Second), // 2 seconds between login attempts
+		catalog:  cat,
 	}
 }
 

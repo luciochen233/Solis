@@ -43,6 +43,7 @@ type PageData struct {
 	SearchQuery      string
 	SelectedStatus   string
 	SelectedLocation int64
+	CatalogJSON      string
 }
 
 // ==========================================
@@ -248,12 +249,18 @@ func (s *Server) handleItemNew(w http.ResponseWriter, r *http.Request) {
 	locations, _ := s.db.ListLocations()
 	tags, _ := s.db.ListTags()
 
+	catalogJSON, err := json.Marshal(s.catalog)
+	if err != nil {
+		catalogJSON = []byte("[]")
+	}
+
 	data := PageData{
-		CSRFToken: csrfToken(w, r),
-		ActiveNav: "items",
-		Locations: locations,
-		Tags:      tags,
-		FormMode:  true,
+		CSRFToken:   csrfToken(w, r),
+		ActiveNav:   "items",
+		Locations:   locations,
+		Tags:        tags,
+		FormMode:    true,
+		CatalogJSON: string(catalogJSON),
 	}
 	renderTemplate(w, "items.html", data)
 }
@@ -263,6 +270,81 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, s.cfg.Upload.MaxSize*1024*1024)
 	if err := r.ParseMultipartForm(s.cfg.Upload.MaxSize * 1024 * 1024); err != nil {
 		http.Error(w, "Upload exceeds maximum limit", http.StatusBadRequest)
+		return
+	}
+
+	if r.FormValue("wizard_flow") == "true" {
+		category := r.FormValue("category")
+		itemVal := r.FormValue("item")
+		brand := r.FormValue("brand")
+
+		// 1. Determine the last used location ID
+		lastLocID, err := s.db.GetLastUsedLocationID()
+		if err != nil {
+			lastLocID = 1 // Default Room
+		}
+		locID := sql.NullInt64{Int64: lastLocID, Valid: true}
+
+		// 2. Format a beautiful name
+		var name string
+		if brand != "" && brand != "Other" && itemVal != "" && itemVal != "Other" {
+			name = brand + " " + itemVal
+		} else if itemVal != "" && itemVal != "Other" {
+			name = itemVal
+		} else if category != "" && category != "Other" {
+			// Find category name from ID
+			catName := category
+			for _, cat := range s.catalog {
+				if cat.ID == category {
+					catName = cat.Name
+					break
+				}
+			}
+			name = catName + " Asset"
+		} else {
+			name = "New Asset"
+		}
+
+		// 3. Resolve the room tag automatically
+		var tagIDs []int64
+		tagIDs = s.resolveRoomTag(lastLocID, tagIDs)
+
+		// 4. Construct category description
+		var desc string
+		catLabel := category
+		for _, cat := range s.catalog {
+			if cat.ID == category {
+				catLabel = cat.Name
+				break
+			}
+		}
+		desc = fmt.Sprintf("Automatically cataloged via Wizard: %s > %s > %s", catLabel, itemVal, brand)
+
+		item := &db.Item{
+			Name:        name,
+			Description: desc,
+			Quantity:    1,
+			Status:      "In Storage",
+			LocationID:  locID,
+		}
+
+		// 5. Create the item record
+		createdItem, err := s.db.CreateItem(item, tagIDs)
+		if err != nil {
+			log.Printf("Error creating wizard item: %v", err)
+			http.Error(w, "Failed to create item", http.StatusInternalServerError)
+			return
+		}
+
+		// 6. Generate collision-resistant short slug (using Glimmer SHA-256 slug engine)
+		slugVal, err := slug.GenerateItemSlug(createdItem.ID, s.cfg.Slugs.Length, s.db.Conn)
+		if err == nil && slugVal != "" {
+			targetURL := fmt.Sprintf("/admin?view=%d", createdItem.ID)
+			_, _ = s.db.CreateLink(slugVal, targetURL, "admin", sql.NullInt64{Int64: createdItem.ID, Valid: true})
+		}
+
+		// 7. Redirect straight to the Edit page so the user can modify any further details
+		http.Redirect(w, r, fmt.Sprintf("/admin/items/edit/%d?toast=Asset+created+successfully!+You+can+refine+its+details+below.&toast_type=success", createdItem.ID), http.StatusSeeOther)
 		return
 	}
 

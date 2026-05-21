@@ -363,3 +363,17 @@ func (d *DB) arrangeTags(roomName string, tags []Tag) []Tag {
 	// Prepend roomTag
 	return append([]Tag{*roomTag}, otherTags...)
 }
+
+// GetLastUsedLocationID returns the location ID of the most recently created/added item.
+// If no items exist or none have a location assigned, it defaults to 1 (Default Room).
+func (d *DB) GetLastUsedLocationID() (int64, error) {
+	var locID int64
+	err := d.Conn.QueryRow("SELECT location_id FROM items WHERE location_id IS NOT NULL ORDER BY id DESC LIMIT 1").Scan(&locID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 1, nil // Fallback to Default Room
+		}
+		return 0, err
+	}
+	return locID, nil
+}

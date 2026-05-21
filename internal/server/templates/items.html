@@ -3,138 +3,697 @@
 {{define "content"}}
 
 {{if .FormMode}}
-    <!-- ================== ASSET EDIT / CREATE FORM ================== -->
-    <div class="page-header">
-        <div class="page-title">
-            <h1>{{if .EditingItem}}Edit Asset: {{.EditingItem.Name}}{{else}}Add New Asset{{end}}</h1>
-            <p>Define inventory items, upload documentation, and generate automated QR codes.</p>
+    {{if .EditingItem}}
+        <!-- ================== ASSET EDIT / CREATE FORM ================== -->
+        <div class="page-header">
+            <div class="page-title">
+                <h1>Edit Asset: {{.EditingItem.Name}}</h1>
+                <p>Define inventory items, upload documentation, and generate automated QR codes.</p>
+            </div>
+            <div>
+                <a href="/admin" class="btn btn-secondary">Cancel</a>
+            </div>
         </div>
-        <div>
-            <a href="/admin" class="btn btn-secondary">Cancel</a>
-        </div>
-    </div>
 
-    <div class="card">
-        <form action="{{if .EditingItem}}/admin/items/edit/{{.EditingItem.ID}}{{else}}/admin/items/new{{end}}" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            
-            <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Basic Information</h3>
-            
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
-                <div class="form-group">
-                    <label for="name" class="form-label">Asset Name</label>
-                    <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Cordless Hammer Drill" value="{{if .EditingItem}}{{.EditingItem.Name}}{{end}}" required>
+        <div class="card">
+            <form action="/admin/items/edit/{{.EditingItem.ID}}" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                
+                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Basic Information</h3>
+                
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+                    <div class="form-group">
+                        <label for="name" class="form-label">Asset Name</label>
+                        <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Cordless Hammer Drill" value="{{.EditingItem.Name}}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="quantity" class="form-label">Quantity</label>
+                        <input type="number" id="quantity" name="quantity" class="form-control" min="1" value="{{.EditingItem.Quantity}}" required>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="quantity" class="form-label">Quantity</label>
-                    <input type="number" id="quantity" name="quantity" class="form-control" min="1" value="{{if .EditingItem}}{{.EditingItem.Quantity}}{{else}}1{{end}}" required>
-                </div>
-            </div>
 
-            <div class="form-group">
-                <label for="description" class="form-label">Description</label>
-                <textarea id="description" name="description" class="form-control" rows="3" placeholder="e.g. Brushless motor hammer drill, includes two 18V Li-ion batteries">{{if .EditingItem}}{{.EditingItem.Description}}{{end}}</textarea>
-            </div>
+                <div class="form-group">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea id="description" name="description" class="form-control" rows="3" placeholder="e.g. Brushless motor hammer drill, includes two 18V Li-ion batteries">{{.EditingItem.Description}}</textarea>
+                </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
-                <div class="form-group">
-                    <label for="model_number" class="form-label">Model Number</label>
-                    <input type="text" id="model_number" name="model_number" class="form-control" placeholder="e.g. DCD796" value="{{if .EditingItem}}{{.EditingItem.ModelNumber}}{{end}}">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                    <div class="form-group">
+                        <label for="model_number" class="form-label">Model Number</label>
+                        <input type="text" id="model_number" name="model_number" class="form-control" placeholder="e.g. DCD796" value="{{.EditingItem.ModelNumber}}">
+                    </div>
+                    <div class="form-group">
+                        <label for="serial_number" class="form-label">Serial Number</label>
+                        <input type="text" id="serial_number" name="serial_number" class="form-control" placeholder="e.g. 2018-W42-9988" value="{{.EditingItem.SerialNumber}}">
+                    </div>
+                    <div class="form-group">
+                        <label for="status" class="form-label">Status</label>
+                        <select id="status" name="status" class="form-control">
+                            <option value="In Use" {{if eq .EditingItem.Status "In Use"}}selected{{end}}>In Use</option>
+                            <option value="In Storage" {{if eq .EditingItem.Status "In Storage"}}selected{{end}}>In Storage</option>
+                            <option value="Borrowed" {{if eq .EditingItem.Status "Borrowed"}}selected{{end}}>Borrowed</option>
+                            <option value="Lost" {{if eq .EditingItem.Status "Lost"}}selected{{end}}>Lost</option>
+                            <option value="Disposed" {{if eq .EditingItem.Status "Disposed"}}selected{{end}}>Disposed</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="serial_number" class="form-label">Serial Number</label>
-                    <input type="text" id="serial_number" name="serial_number" class="form-control" placeholder="e.g. 2018-W42-9988" value="{{if .EditingItem}}{{.EditingItem.SerialNumber}}{{end}}">
-                </div>
-                <div class="form-group">
-                    <label for="status" class="form-label">Status</label>
-                    <select id="status" name="status" class="form-control">
-                        <option value="In Use" {{if .EditingItem}}{{if eq .EditingItem.Status "In Use"}}selected{{end}}{{end}}>In Use</option>
-                        <option value="In Storage" {{if .EditingItem}}{{if eq .EditingItem.Status "In Storage"}}selected{{end}}{{end}}>In Storage</option>
-                        <option value="Borrowed" {{if .EditingItem}}{{if eq .EditingItem.Status "Borrowed"}}selected{{end}}{{end}}>Borrowed</option>
-                        <option value="Lost" {{if .EditingItem}}{{if eq .EditingItem.Status "Lost"}}selected{{end}}{{end}}>Lost</option>
-                        <option value="Disposed" {{if .EditingItem}}{{if eq .EditingItem.Status "Disposed"}}selected{{end}}{{end}}>Disposed</option>
-                    </select>
-                </div>
-            </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-                <div class="form-group">
-                    <label for="location_id" class="form-label">Location</label>
-                    <select id="location_id" name="location_id" class="form-control" required>
-                        {{range .Locations}}
-                            <option value="{{.ID}}" {{if $.EditingItem}}{{if $.EditingItem.LocationID.Valid}}{{if eq .ID $.EditingItem.LocationID.Int64}}selected{{end}}{{end}}{{else}}{{if eq .ID 1}}selected{{end}}{{end}}>
-                                {{.Name}}
-                            </option>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="form-group">
+                        <label for="location_id" class="form-label">Location</label>
+                        <select id="location_id" name="location_id" class="form-control" required>
+                            {{range .Locations}}
+                                <option value="{{.ID}}" {{if $.EditingItem.LocationID.Valid}}{{if eq .ID $.EditingItem.LocationID.Int64}}selected{{end}}{{end}}>
+                                    {{.Name}}
+                                </option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tags / Categories</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; border: 1px solid var(--color-border); padding: 0.625rem; border-radius: var(--radius-sm); background-color: var(--color-bg-base); max-height: 110px; overflow-y: auto;">
+                            {{range .Tags}}
+                                <label style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; font-weight: 500; cursor: pointer;">
+                                    <input type="checkbox" name="tag_ids" value="{{.ID}}" data-tag-name="{{.Name}}" {{if hasTag $.EditingItem.Tags .ID}}checked{{end}}>
+                                    <span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span>
+                                </label>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Purchase & Warranty</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem;">
+                    <div class="form-group">
+                        <label for="purchase_price" class="form-label">Purchase Price ($)</label>
+                        <input type="number" id="purchase_price" name="purchase_price" class="form-control" step="0.01" min="0" placeholder="e.g. 149.99" value="{{if .EditingItem.PurchasePrice.Valid}}{{.EditingItem.PurchasePrice.Float64}}{{end}}">
+                    </div>
+                    <div class="form-group">
+                        <label for="purchase_date" class="form-label">Purchase Date</label>
+                        <input type="date" id="purchase_date" name="purchase_date" class="form-control" value="{{if .EditingItem.PurchaseDate.Valid}}{{.EditingItem.PurchaseDate.String}}{{end}}">
+                    </div>
+                    <div class="form-group">
+                        <label for="warranty_months" class="form-label">Warranty (Months)</label>
+                        <input type="number" id="warranty_months" name="warranty_months" class="form-control" min="0" placeholder="e.g. 24" value="{{if .EditingItem.WarrantyMonths.Valid}}{{.EditingItem.WarrantyMonths.Int64}}{{end}}">
+                    </div>
+                    <div class="form-group">
+                        <label for="supplier" class="form-label">Supplier / Store</label>
+                        <input type="text" id="supplier" name="supplier" class="form-control" placeholder="e.g. Home Depot" value="{{.EditingItem.Supplier}}">
+                    </div>
+                </div>
+
+                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Documentation & Visuals</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="form-group">
+                        <label for="image" class="form-label">Item Photo</label>
+                        <input type="file" id="image" name="image" class="form-control" accept="image/*">
+                        {{if .EditingItem.ImagePath}}
+                            <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">Active Image: {{.EditingItem.ImagePath}}</span>
                         {{end}}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Tags / Categories</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; border: 1px solid var(--color-border); padding: 0.625rem; border-radius: var(--radius-sm); background-color: var(--color-bg-base); max-height: 110px; overflow-y: auto;">
-                        {{range .Tags}}
-                            <label style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; font-weight: 500; cursor: pointer;">
-                                <input type="checkbox" name="tag_ids" value="{{.ID}}" data-tag-name="{{.Name}}" {{if $.EditingItem}}{{if hasTag $.EditingItem.Tags .ID}}checked{{end}}{{end}}>
-                                <span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span>
-                            </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="receipt" class="form-label">Receipt / Invoice Document</label>
+                        <input type="file" id="receipt" name="receipt" class="form-control" accept="image/*,application/pdf">
+                        {{if .EditingItem.ReceiptPath}}
+                            <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">Active Receipt: {{.EditingItem.ReceiptPath}}</span>
                         {{end}}
                     </div>
                 </div>
+
+                <h3 style="font-weight: 700; margin-bottom: 0.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Custom Fields</h3>
+                <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 1rem;">Enter custom parameters one per line as <code>Key: Value</code> (e.g. <code>Battery: 18v Lithium</code>). These will be parsed into indexed SQLite JSON dynamically.</p>
+                
+                <div class="form-group" style="margin-bottom: 2.5rem;">
+                    <label for="custom_fields" class="form-label">Custom Fields Editor</label>
+                    <textarea id="custom_fields" name="custom_fields" class="form-control" rows="4" placeholder="Battery: 18v&#10;MotorType: Brushless">{{.CustomFieldsRaw}}</textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem;">
+                    Save Changes
+                </button>
+            </form>
+        </div>
+    {{else}}
+        <!-- ================== PREMIUM ADD ASSET WIZARD ================== -->
+        <div class="page-header">
+            <div class="page-title">
+                <h1>Add New Asset</h1>
+                <p>Catalog any device, appliance, or item in seconds using our intuitive selection wizard.</p>
+            </div>
+            <div>
+                <a href="/admin" class="btn btn-secondary">Cancel</a>
+            </div>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="wizard-progress-bar">
+            <div class="wizard-step active" id="progress-step-1">
+                <span class="step-num">1</span>
+                <span class="step-label">Category</span>
+            </div>
+            <div class="wizard-line" id="progress-line-1"></div>
+            <div class="wizard-step" id="progress-step-2">
+                <span class="step-num">2</span>
+                <span class="step-label">Item</span>
+            </div>
+            <div class="wizard-line" id="progress-line-2"></div>
+            <div class="wizard-step" id="progress-step-3">
+                <span class="step-num">3</span>
+                <span class="step-label">Brand</span>
+            </div>
+        </div>
+
+        <!-- Wizard Card Box -->
+        <div class="card" style="padding: 2.25rem;">
+            <!-- Hidden Form to submit the selection -->
+            <form id="wizard-form" action="/admin/items/new" method="POST">
+                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                <input type="hidden" name="wizard_flow" value="true">
+                <input type="hidden" id="input-category" name="category" value="">
+                <input type="hidden" id="input-item" name="item" value="">
+                <input type="hidden" id="input-brand" name="brand" value="">
+            </form>
+
+            <!-- Back Button Navigation -->
+            <div style="margin-bottom: 2rem; display: none;" id="wizard-back-wrapper">
+                <button type="button" class="btn btn-secondary" id="btn-wizard-back" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: var(--radius-sm);">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 14px; height: 14px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    </svg>
+                    Back to previous step
+                </button>
             </div>
 
-            <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Purchase & Warranty</h3>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem;">
-                <div class="form-group">
-                    <label for="purchase_price" class="form-label">Purchase Price ($)</label>
-                    <input type="number" id="purchase_price" name="purchase_price" class="form-control" step="0.01" min="0" placeholder="e.g. 149.99" value="{{if .EditingItem}}{{if .EditingItem.PurchasePrice.Valid}}{{.EditingItem.PurchasePrice.Float64}}{{end}}{{end}}">
-                </div>
-                <div class="form-group">
-                    <label for="purchase_date" class="form-label">Purchase Date</label>
-                    <input type="date" id="purchase_date" name="purchase_date" class="form-control" value="{{if .EditingItem}}{{if .EditingItem.PurchaseDate.Valid}}{{.EditingItem.PurchaseDate.String}}{{end}}{{end}}">
-                </div>
-                <div class="form-group">
-                    <label for="warranty_months" class="form-label">Warranty (Months)</label>
-                    <input type="number" id="warranty_months" name="warranty_months" class="form-control" min="0" placeholder="e.g. 24" value="{{if .EditingItem}}{{if .EditingItem.WarrantyMonths.Valid}}{{.EditingItem.WarrantyMonths.Int64}}{{end}}{{end}}">
-                </div>
-                <div class="form-group">
-                    <label for="supplier" class="form-label">Supplier / Store</label>
-                    <input type="text" id="supplier" name="supplier" class="form-control" placeholder="e.g. Home Depot" value="{{if .EditingItem}}{{.EditingItem.Supplier}}{{end}}">
+            <!-- Step 1: Category Screen -->
+            <div class="wizard-screen active" id="screen-category">
+                <h3 class="wizard-screen-title">Which category of item do you want to add?</h3>
+                <div class="category-grid" id="category-grid-container">
+                    <!-- Loaded dynamically via JS -->
                 </div>
             </div>
 
-            <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Documentation & Visuals</h3>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                <div class="form-group">
-                    <label for="image" class="form-label">Item Photo</label>
-                    <input type="file" id="image" name="image" class="form-control" accept="image/*">
-                    {{if .EditingItem}}{{if .EditingItem.ImagePath}}
-                        <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">Active Image: {{.EditingItem.ImagePath}}</span>
-                    {{end}}{{end}}
-                </div>
-                <div class="form-group">
-                    <label for="receipt" class="form-label">Receipt / Invoice Document</label>
-                    <input type="file" id="receipt" name="receipt" class="form-control" accept="image/*,application/pdf">
-                    {{if .EditingItem}}{{if .EditingItem.ReceiptPath}}
-                        <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">Active Receipt: {{.EditingItem.ReceiptPath}}</span>
-                    {{end}}{{end}}
+            <!-- Step 2: Item Screen -->
+            <div class="wizard-screen" id="screen-item">
+                <h3 class="wizard-screen-title" id="item-screen-heading">What kind of item is it?</h3>
+                <div class="pills-grid" id="item-grid-container">
+                    <!-- Loaded dynamically via JS -->
                 </div>
             </div>
 
-            <h3 style="font-weight: 700; margin-bottom: 0.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Custom Fields</h3>
-            <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 1rem;">Enter custom parameters one per line as <code>Key: Value</code> (e.g. <code>Battery: 18v Lithium</code>). These will be parsed into indexed SQLite JSON dynamically.</p>
-            
-            <div class="form-group" style="margin-bottom: 2.5rem;">
-                <label for="custom_fields" class="form-label">Custom Fields Editor</label>
-                <textarea id="custom_fields" name="custom_fields" class="form-control" rows="4" placeholder="Battery: 18v&#10;MotorType: Brushless">{{.CustomFieldsRaw}}</textarea>
+            <!-- Step 3: Brand Screen -->
+            <div class="wizard-screen" id="screen-brand">
+                <h3 class="wizard-screen-title" id="brand-screen-heading">What brand is the item?</h3>
+                <div class="pills-grid" id="brand-grid-container">
+                    <!-- Loaded dynamically via JS -->
+                </div>
             </div>
+        </div>
 
-            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem;">
-                {{if .EditingItem}}Save Changes{{else}}Create Asset{{end}}
-            </button>
-        </form>
-    </div>
+        <!-- Styles specific to the Wizard to avoid polluting main theme -->
+        <style>
+            .wizard-progress-bar {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 2.5rem;
+                max-width: 600px;
+                margin-left: auto;
+                margin-right: auto;
+            }
 
+            .wizard-step {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+                position: relative;
+                z-index: 10;
+                transition: all 0.3s ease;
+            }
+
+            .wizard-step .step-num {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                background-color: var(--color-bg-base);
+                border: 2px solid var(--color-border);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                color: var(--color-text-light);
+                font-size: 0.95rem;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .wizard-step .step-label {
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: var(--color-text-light);
+                transition: all 0.3s ease;
+            }
+
+            .wizard-step.active .step-num {
+                background-color: var(--color-brand-primary);
+                border-color: var(--color-brand-primary);
+                color: white;
+                box-shadow: 0 4px 10px rgba(217, 119, 6, 0.3);
+            }
+
+            .wizard-step.active .step-label {
+                color: var(--color-brand-primary);
+                font-weight: 700;
+            }
+
+            .wizard-step.completed .step-num {
+                background-color: #10b981;
+                border-color: #10b981;
+                color: white;
+                box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+            }
+
+            .wizard-step.completed .step-label {
+                color: #10b981;
+            }
+
+            .wizard-line {
+                flex-grow: 1;
+                height: 3px;
+                background-color: var(--color-border);
+                margin: 0 -0.5rem;
+                transform: translateY(-13px);
+                transition: background-color 0.3s ease;
+            }
+
+            .wizard-line.completed {
+                background-color: #10b981;
+            }
+
+            .wizard-line.active {
+                background-color: var(--color-brand-primary);
+            }
+
+            .wizard-screen {
+                display: none;
+                animation: wizardFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+
+            .wizard-screen.active {
+                display: block;
+            }
+
+            @keyframes wizardFadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .wizard-screen-title {
+                font-size: 1.35rem;
+                font-weight: 700;
+                margin-bottom: 2rem;
+                color: var(--color-text-main);
+                text-align: center;
+            }
+
+            /* Categories Grid of big square cards */
+            .category-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 1.25rem;
+            }
+
+            .category-card {
+                aspect-ratio: 1/1;
+                background-color: var(--color-bg-surface);
+                border: 1px solid var(--color-border);
+                border-radius: var(--radius-md);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 1.5rem 1rem;
+                cursor: pointer;
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: var(--shadow-sm);
+                text-align: center;
+            }
+
+            .category-card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
+                border-color: var(--cat-color);
+                background-color: var(--cat-color-bg);
+            }
+
+            .category-badge {
+                width: 48px;
+                height: 48px;
+                border-radius: 12px;
+                background-color: var(--cat-color-badge-bg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.4rem;
+                font-weight: 700;
+                color: var(--cat-color);
+                margin-bottom: 1rem;
+                transition: transform 0.2s ease;
+            }
+
+            .category-card:hover .category-badge {
+                transform: scale(1.1);
+            }
+
+            .category-name {
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--color-text-main);
+            }
+
+            /* Sub-screen pill grid */
+            .pills-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 1rem;
+            }
+
+            .pill-button {
+                background-color: var(--color-bg-surface);
+                border: 1.5px solid var(--color-border);
+                border-radius: var(--radius-sm);
+                padding: 1rem 1.25rem;
+                font-size: 1rem;
+                font-weight: 600;
+                color: var(--color-text-main);
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                box-shadow: var(--shadow-sm);
+            }
+
+            .pill-button:hover {
+                border-color: var(--color-brand-primary);
+                background-color: #fefaf0;
+                color: var(--color-brand-primary);
+                transform: translateX(2px);
+            }
+
+            .pill-button svg {
+                width: 16px;
+                height: 16px;
+                color: var(--color-text-light);
+                transition: transform 0.2s ease, color 0.2s ease;
+            }
+
+            .pill-button:hover svg {
+                transform: translateX(3px);
+                color: var(--color-brand-primary);
+            }
+
+            .pill-button.other-pill {
+                border-style: dashed;
+                border-width: 2px;
+                background-color: var(--color-bg-base);
+                color: var(--color-text-muted);
+            }
+
+            .pill-button.other-pill:hover {
+                border-color: var(--color-text-muted);
+                background-color: var(--color-border);
+                color: var(--color-text-main);
+            }
+        </style>
+
+        <script>
+            // Parse catalog JSON data dynamically injected by handler
+            const catalog = {{.CatalogJSON}};
+
+            let currentStep = 1;
+            let selectedCategory = null;
+            let selectedItem = null;
+            let selectedBrand = null;
+
+            // DOM Elements
+            const screenCategory = document.getElementById('screen-category');
+            const screenItem = document.getElementById('screen-item');
+            const screenBrand = document.getElementById('screen-brand');
+
+            const categoryGrid = document.getElementById('category-grid-container');
+            const itemGrid = document.getElementById('item-grid-container');
+            const brandGrid = document.getElementById('brand-grid-container');
+
+            const inputCategory = document.getElementById('input-category');
+            const inputItem = document.getElementById('input-item');
+            const inputBrand = document.getElementById('input-brand');
+
+            const wizardForm = document.getElementById('wizard-form');
+            const backBtnWrapper = document.getElementById('wizard-back-wrapper');
+            const backBtn = document.getElementById('btn-wizard-back');
+
+            // Set up steps DOM markers
+            const step1 = document.getElementById('progress-step-1');
+            const step2 = document.getElementById('progress-step-2');
+            const step3 = document.getElementById('progress-step-3');
+
+            const line1 = document.getElementById('progress-line-1');
+            const line2 = document.getElementById('progress-line-2');
+
+            // 1. Initial render of Categories screen
+            function initWizard() {
+                categoryGrid.innerHTML = '';
+                
+                catalog.forEach(cat => {
+                    // Create beautiful HSL tints using the custom category color
+                    const color = cat.color || '#d97706';
+                    
+                    // Simple helper to convert HEX to RGBA / transparent tint
+                    const r = parseInt(color.slice(1, 3), 16);
+                    const g = parseInt(color.slice(3, 5), 16);
+                    const b = parseInt(color.slice(5, 7), 16);
+                    
+                    const card = document.createElement('div');
+                    card.className = 'category-card';
+                    card.style.setProperty('--cat-color', color);
+                    card.style.setProperty('--cat-color-bg', `rgba(${r}, ${g}, ${b}, 0.04)`);
+                    card.style.setProperty('--cat-color-badge-bg', `rgba(${r}, ${g}, ${b}, 0.1)`);
+                    
+                    // Pick beautiful stylized icon or stylized letter badge
+                    const initial = cat.name.charAt(0);
+                    card.innerHTML = `
+                        <div class="category-badge">${initial}</div>
+                        <div class="category-name">${cat.name}</div>
+                    `;
+                    
+                    card.addEventListener('click', () => {
+                        selectCategory(cat);
+                    });
+                    
+                    categoryGrid.appendChild(card);
+                });
+
+                // Add "Other" selection Card at first layer
+                const otherCard = document.createElement('div');
+                otherCard.className = 'category-card';
+                otherCard.style.setProperty('--cat-color', 'var(--color-text-muted)');
+                otherCard.style.setProperty('--cat-color-bg', 'var(--color-bg-base)');
+                otherCard.style.setProperty('--cat-color-badge-bg', 'var(--color-border)');
+                otherCard.style.borderStyle = 'dashed';
+                otherCard.style.borderWidth = '2px';
+                otherCard.innerHTML = `
+                    <div class="category-badge" style="font-weight: 500;">+</div>
+                    <div class="category-name">Other / Unlisted</div>
+                `;
+                otherCard.addEventListener('click', () => {
+                    selectCategory({ id: 'Other', name: 'Other', items: [] });
+                });
+                categoryGrid.appendChild(otherCard);
+            }
+
+            // 2. Category selection logic
+            function selectCategory(cat) {
+                selectedCategory = cat.id;
+                inputCategory.value = cat.id;
+
+                if (cat.id === 'Other') {
+                    // Instantly submit with Other fallback
+                    inputItem.value = 'Other';
+                    inputBrand.value = 'Other';
+                    wizardForm.submit();
+                    return;
+                }
+
+                renderItems(cat);
+                goToStep(2);
+            }
+
+            // 3. Render Items Screen
+            function renderItems(cat) {
+                const heading = document.getElementById('item-screen-heading');
+                heading.textContent = `What kind of ${cat.name.toLowerCase()} is it?`;
+
+                itemGrid.innerHTML = '';
+                
+                cat.items.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'pill-button';
+                    btn.innerHTML = `
+                        <span>${item.name}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    `;
+                    
+                    btn.addEventListener('click', () => {
+                        selectItem(cat, item);
+                    });
+                    
+                    itemGrid.appendChild(btn);
+                });
+
+                // Add "Other" option in Layer 2
+                const otherBtn = document.createElement('button');
+                otherBtn.type = 'button';
+                otherBtn.className = 'pill-button other-pill';
+                otherBtn.innerHTML = `
+                    <span>Other Item</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                `;
+                otherBtn.addEventListener('click', () => {
+                    selectItem(cat, { name: 'Other', brands: [] });
+                });
+                itemGrid.appendChild(otherBtn);
+            }
+
+            // 4. Item selection logic
+            function selectItem(cat, item) {
+                selectedItem = item.name;
+                inputItem.value = item.name;
+
+                if (item.name === 'Other') {
+                    // Instantly submit with Other fallback
+                    inputBrand.value = 'Other';
+                    wizardForm.submit();
+                    return;
+                }
+
+                renderBrands(item);
+                goToStep(3);
+            }
+
+            // 5. Render Brands Screen
+            function renderBrands(item) {
+                const heading = document.getElementById('brand-screen-heading');
+                heading.textContent = `What brand is the ${item.name.toLowerCase()}?`;
+
+                brandGrid.innerHTML = '';
+                
+                item.brands.forEach(brand => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'pill-button';
+                    btn.innerHTML = `
+                        <span>${brand}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    `;
+                    
+                    btn.addEventListener('click', () => {
+                        selectBrand(brand);
+                    });
+                    
+                    brandGrid.appendChild(btn);
+                });
+
+                // Add "Other" option in Layer 3
+                const otherBtn = document.createElement('button');
+                otherBtn.type = 'button';
+                otherBtn.className = 'pill-button other-pill';
+                otherBtn.innerHTML = `
+                    <span>Other Brand</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                `;
+                otherBtn.addEventListener('click', () => {
+                    selectBrand('Other');
+                });
+                brandGrid.appendChild(otherBtn);
+            }
+
+            // 6. Brand selection logic (final layer)
+            function selectBrand(brand) {
+                selectedBrand = brand;
+                inputBrand.value = brand;
+                
+                // Submit the form immediately to complete creation
+                wizardForm.submit();
+            }
+
+            // 7. Navigation Step Controller
+            function goToStep(step) {
+                currentStep = step;
+                
+                // Hide all screens
+                screenCategory.classList.remove('active');
+                screenItem.classList.remove('active');
+                screenBrand.classList.remove('active');
+
+                // Update steps indicator class
+                step1.className = 'wizard-step';
+                step2.className = 'wizard-step';
+                step3.className = 'wizard-step';
+
+                line1.className = 'wizard-line';
+                line2.className = 'wizard-line';
+
+                if (step === 1) {
+                    screenCategory.classList.add('active');
+                    step1.classList.add('active');
+                    backBtnWrapper.style.display = 'none';
+                } else if (step === 2) {
+                    screenItem.classList.add('active');
+                    step1.classList.add('completed');
+                    step2.classList.add('active');
+                    line1.classList.add('completed');
+                    backBtnWrapper.style.display = 'block';
+                } else if (step === 3) {
+                    screenBrand.classList.add('active');
+                    step1.classList.add('completed');
+                    step2.classList.add('completed');
+                    step3.classList.add('active');
+                    line1.classList.add('completed');
+                    line2.classList.add('completed');
+                    backBtnWrapper.style.display = 'block';
+                }
+            }
+
+            // Back button hook
+            backBtn.addEventListener('click', () => {
+                if (currentStep > 1) {
+                    goToStep(currentStep - 1);
+                }
+            });
+
+            // Run initialization
+            window.addEventListener('DOMContentLoaded', () => {
+                initWizard();
+            });
+        </script>
+    {{end}}
 {{else if .ViewMode}}
     <!-- ================== ASSET VIEW DETAILS MODE ================== -->
     <div class="page-header">

@@ -1,0 +1,613 @@
+// ==============================================================================
+// SOLIS CATALOG CONFIGURATION FILE
+// ==============================================================================
+// This file contains a hierarchical catalog of categories, items, and popular brands
+// designed to make the asset creation process incredibly fast and user-friendly.
+//
+// STRUCTURE:
+// The catalog is a JSON array of Category objects.
+// Each Category has:
+//   - "id": A unique string key for the category (e.g. "tech")
+//   - "name": A human-readable name of the category (e.g. "Tech & Electronics")
+//   - "color": A tailored accent color hex/hsl for premium visual button rendering
+//   - "items": An array of Item objects.
+//
+// Each Item has:
+//   - "name": The singular/plural name of the item type (e.g. "Smartphones")
+//   - "brands": An array of at least 8 popular brands for that item.
+//
+// HOW AGENTS AND USERS CAN EDIT THIS FILE:
+// 1. To add a Category: Append an object to the top-level array with a unique "id", "name", "color", and list of "items".
+// 2. To add an Item: Append an object to the "items" array under a category. Ensure it has a "name" and at least 8 "brands".
+// 3. To add a Brand: Append a brand string to the "brands" array under an item.
+//
+// Keep this structure human-readable. Lines starting with '//' are comments and will
+// be stripped dynamically during app startup before decoding standard JSON.
+// ==============================================================================
+[
+  {
+    "id": "tech",
+    "name": "Tech & Electronics",
+    "color": "#3b82f6",
+    "items": [
+      {
+        "name": "Smartphones",
+        "brands": ["Apple", "Samsung", "Google", "OnePlus", "Xiaomi", "Sony", "Motorola", "Oppo"]
+      },
+      {
+        "name": "Laptops",
+        "brands": ["Dell", "HP", "Lenovo", "Apple", "ASUS", "Acer", "Microsoft", "MSI"]
+      },
+      {
+        "name": "Tablets",
+        "brands": ["Apple", "Samsung", "Lenovo", "Microsoft", "Amazon", "Huawei", "Xiaomi", "OnePlus"]
+      },
+      {
+        "name": "Smartwatches",
+        "brands": ["Apple", "Samsung", "Garmin", "Fitbit", "Fossil", "Amazfit", "Huawei", "Google"]
+      },
+      {
+        "name": "Desktop Computers",
+        "brands": ["Dell", "HP", "Lenovo", "Apple", "ASUS", "Acer", "Corsair", "CyberPowerPC"]
+      },
+      {
+        "name": "Computer Monitors",
+        "brands": ["Dell", "LG", "Samsung", "ASUS", "Acer", "BenQ", "HP", "MSI"]
+      },
+      {
+        "name": "Keyboards",
+        "brands": ["Logitech", "SteelSeries", "Razer", "Corsair", "Keychron", "Ducky", "HyperX", "Redragon"]
+      },
+      {
+        "name": "Computer Mice",
+        "brands": ["Logitech", "Razer", "Corsair", "SteelSeries", "HyperX", "Glorious", "ASUS", "Roccat"]
+      }
+    ]
+  },
+  {
+    "id": "kitchen",
+    "name": "Kitchen Appliances",
+    "color": "#ec4899",
+    "items": [
+      {
+        "name": "Coffee Makers",
+        "brands": ["Keurig", "Nespresso", "Breville", "De'Longhi", "Cuisinart", "Mr. Coffee", "Philips", "Krups"]
+      },
+      {
+        "name": "Blenders",
+        "brands": ["Vitamix", "Ninja", "Blendtec", "KitchenAid", "NutriBullet", "Oster", "Breville", "Cuisinart"]
+      },
+      {
+        "name": "Toasters",
+        "brands": ["Breville", "Cuisinart", "KitchenAid", "Black+Decker", "Hamilton Beach", "SMEG", "Zojirushi", "Oster"]
+      },
+      {
+        "name": "Microwaves",
+        "brands": ["Panasonic", "Toshiba", "Samsung", "LG", "GE", "Sharp", "Whirlpool", "Farberware"]
+      },
+      {
+        "name": "Air Fryers",
+        "brands": ["Ninja", "Instant Pot", "Cosori", "Philips", "Chefman", "Tefal", "Breville", "GoWISE"]
+      },
+      {
+        "name": "Food Processors",
+        "brands": ["Cuisinart", "Breville", "KitchenAid", "Ninja", "Hamilton Beach", "Braun", "Magimix", "Kenwood"]
+      },
+      {
+        "name": "Juicers",
+        "brands": ["Breville", "Omega", "Hurom", "Hamilton Beach", "Cuisinart", "Nama", "Tribest", "Mueller"]
+      },
+      {
+        "name": "Rice Cookers",
+        "brands": ["Zojirushi", "Tiger", "Instant Pot", "Cuckoo", "Hamilton Beach", "Aroma", "Panasonic", "Toshiba"]
+      }
+    ]
+  },
+  {
+    "id": "furniture",
+    "name": "Furniture",
+    "color": "#8b5cf6",
+    "items": [
+      {
+        "name": "Office Chairs",
+        "brands": ["Herman Miller", "Steelcase", "Ergohuman", "Autonomous", "Secretlab", "Branch", "Haworth", "Hon"]
+      },
+      {
+        "name": "Desks",
+        "brands": ["IKEA", "Uplift", "Jarvis", "FlexiSpot", "Branch", "Fully", "Sauder", "Bush Furniture"]
+      },
+      {
+        "name": "Sofas",
+        "brands": ["West Elm", "Article", "Joybird", "IKEA", "Pottery Barn", "Wayfair", "La-Z-Boy", "Crate & Barrel"]
+      },
+      {
+        "name": "Dining Tables",
+        "brands": ["West Elm", "Pottery Barn", "IKEA", "Wayfair", "Crate & Barrel", "Floyd", "Castlery", "Rove Concepts"]
+      },
+      {
+        "name": "Mattresses",
+        "brands": ["Casper", "Purple", "Tempur-Pedic", "Nectar", "Saatva", "Helix", "Tuft & Needle", "Sealy"]
+      },
+      {
+        "name": "Bookshelves",
+        "brands": ["IKEA", "West Elm", "Wayfair", "CB2", "Crate & Barrel", "Pottery Barn", "Target", "Sauder"]
+      },
+      {
+        "name": "Coffee Tables",
+        "brands": ["West Elm", "IKEA", "Wayfair", "CB2", "Article", "Pottery Barn", "Target", "Floyd"]
+      },
+      {
+        "name": "Bed Frames",
+        "brands": ["Zinus", "Thuma", "IKEA", "West Elm", "Tuft & Needle", "Wayfair", "Casper", "Floyd"]
+      }
+    ]
+  },
+  {
+    "id": "office",
+    "name": "Office Supplies",
+    "color": "#06b6d4",
+    "items": [
+      {
+        "name": "Paper Shredders",
+        "brands": ["Fellowes", "AmazonBasics", "Aurora", "Bonsaii", "Swingline", "Royal", "Sentinel", "GBC"]
+      },
+      {
+        "name": "Label Printers",
+        "brands": ["Dymo", "Brother", "Rollo", "Munbyn", "Phomemo", "Zebra", "Epson", "Arkscan"]
+      },
+      {
+        "name": "Staplers",
+        "brands": ["Swingline", "Bostitch", "Paper Mate", "Rapid", "Rexel", "Maped", "Officemate", "AmazonBasics"]
+      },
+      {
+        "name": "Notebooks",
+        "brands": ["Moleskine", "Leuchtturm1917", "Rhodia", "Field Notes", "Rocketbook", "Clairefontaine", "Paperchase", "Oxford"]
+      },
+      {
+        "name": "Pens",
+        "brands": ["Pilot", "Uni-ball", "Pentel", "Zebra", "Parker", "Lamy", "Montblanc", "Sharpie"]
+      },
+      {
+        "name": "Whiteboards",
+        "brands": ["Quartet", "UBrands", "Maxtek", "Viz-Pro", "Audio-Visual Direct", "BoardGeeks", "Lockways", "AmazonBasics"]
+      },
+      {
+        "name": "Desk Organizers",
+        "brands": ["Rolodex", "Jerry & Maggie", "Simple Trending", "Mind Reader", "DecoBros", "AmazonBasics", "Safco", "Deli"]
+      },
+      {
+        "name": "Calculators",
+        "brands": ["Texas Instruments", "Casio", "HP", "Sharp", "Canon", "Citizen", "Victor", "Datexx"]
+      }
+    ]
+  },
+  {
+    "id": "tools",
+    "name": "Tools & Hardware",
+    "color": "#f97316",
+    "items": [
+      {
+        "name": "Power Drills",
+        "brands": ["DeWalt", "Milwaukee", "Makita", "Bosch", "Ryobi", "Black+Decker", "Porter-Cable", "Craftsman"]
+      },
+      {
+        "name": "Screwdriver Sets",
+        "brands": ["Wera", "Wiha", "Klein Tools", "Craftsman", "Stanley", "DeWalt", "Milwaukee", "Gearwrench"]
+      },
+      {
+        "name": "Hand Tool Sets",
+        "brands": ["Stanley", "Craftsman", "DeWalt", "Workpro", "Crescent", "Husky", "Kobalt", "Gearwrench"]
+      },
+      {
+        "name": "Tape Measures",
+        "brands": ["Stanley", "Lufkin", "Milwaukee", "Komelon", "Craftsman", "DeWalt", "Tajima", "Starrett"]
+      },
+      {
+        "name": "Hammers",
+        "brands": ["Estwing", "Stanley", "Stiletto", "Vaughan", "Milwaukee", "DeWalt", "Craftsman", "IRWIN"]
+      },
+      {
+        "name": "Wrenches",
+        "brands": ["Gearwrench", "Crescent", "Tekton", "Craftsman", "Milwaukee", "DeWalt", "Stanley", "Proto"]
+      },
+      {
+        "name": "Pliers",
+        "brands": ["Knipex", "Channellock", "Klein Tools", "IRWIN", "Milwaukee", "DeWalt", "Stanley", "Crescent"]
+      },
+      {
+        "name": "Utility Knives",
+        "brands": ["Stanley", "OLFA", "Milwaukee", "DeWalt", "Gerber", "Fiskars", "Workpro", "ToughBuilt"]
+      }
+    ]
+  },
+  {
+    "id": "fitness",
+    "name": "Fitness & Sports",
+    "color": "#10b981",
+    "items": [
+      {
+        "name": "Treadmills",
+        "brands": ["Peloton", "NordicTrack", "Sole Fitness", "ProForm", "Horizon Fitness", "Bowflex", "Life Fitness", "Sunny Health"]
+      },
+      {
+        "name": "Exercise Bikes",
+        "brands": ["Peloton", "Schwinn", "Bowflex", "NordicTrack", "Keiser", "Sunny Health", "Echelon", "Stages"]
+      },
+      {
+        "name": "Dumbbells",
+        "brands": ["Bowflex", "PowerBlock", "Rogue Fitness", "CAP Barbell", "Yes4All", "AmazonBasics", "Titan Fitness", "Rep Fitness"]
+      },
+      {
+        "name": "Yoga Mats",
+        "brands": ["Lululemon", "Manduka", "Gaiam", "Jade Yoga", "Alo Yoga", "Jade", "Hugger Mugger", "Retrospec"]
+      },
+      {
+        "name": "Resistance Bands",
+        "brands": ["Theraband", "Fit Simplify", "Rogue Fitness", "Black Mountain", "WODFitters", "Serious Steel", "Undersun", "Peach Bands"]
+      },
+      {
+        "name": "Fitness Trackers",
+        "brands": ["Fitbit", "Garmin", "Apple", "Whoop", "Polar", "Coros", "Withings", "Amazfit"]
+      },
+      {
+        "name": "Kettlebells",
+        "brands": ["Rogue Fitness", "Kettlebell Kings", "CAP Barbell", "Rep Fitness", "Titan Fitness", "Yes4All", "Bowflex", "Eleiko"]
+      },
+      {
+        "name": "Foam Rollers",
+        "brands": ["TriggerPoint", "OPTP", "LuxFit", "AmazonBasics", "Hyperice", "Grid", "RumbleRoller", "Gaiam"]
+      }
+    ]
+  },
+  {
+    "id": "entertainment",
+    "name": "Home Entertainment",
+    "color": "#eab308",
+    "items": [
+      {
+        "name": "Televisions",
+        "brands": ["LG", "Samsung", "Sony", "TCL", "Hisense", "Vizio", "Philips", "Panasonic"]
+      },
+      {
+        "name": "Soundbars",
+        "brands": ["Sonos", "Bose", "Sony", "Samsung", "JBL", "Vizio", "Yamaha", "Sennheiser"]
+      },
+      {
+        "name": "Streaming Devices",
+        "brands": ["Roku", "Apple", "Amazon", "Google", "Nvidia", "Xiaomi", "Chromecast", "Fire TV"]
+      },
+      {
+        "name": "Projectors",
+        "brands": ["Epson", "BenQ", "Optoma", "Anker", "Sony", "ViewSonic", "LG", "XGIMI"]
+      },
+      {
+        "name": "VR Headsets",
+        "brands": ["Meta", "HTC", "Sony", "Valve", "HP", "Pimax", "Apple", "Pico"]
+      },
+      {
+        "name": "Game Consoles",
+        "brands": ["Sony", "Microsoft", "Nintendo", "Valve", "ASUS", "Lenovo", "NVIDIA", "Sega"]
+      },
+      {
+        "name": "DVD/Blu-ray Players",
+        "brands": ["Sony", "Panasonic", "LG", "Samsung", "Pioneer", "Yamaha", "Denon", "Philips"]
+      },
+      {
+        "name": "Remote Controls",
+        "brands": ["Logitech", "SofaBaton", "Inteset", "GE", "Philips", "RCA", "One For All", "Broadlink"]
+      }
+    ]
+  },
+  {
+    "id": "outdoor",
+    "name": "Gardening & Outdoor",
+    "color": "#14b8a6",
+    "items": [
+      {
+        "name": "Lawn Mowers",
+        "brands": ["Greenworks", "EGO Power+", "Ryobi", "Honda", "Toro", "John Deere", "Husqvarna", "Worx"]
+      },
+      {
+        "name": "Leaf Blowers",
+        "brands": ["EGO Power+", "Ryobi", "Greenworks", "DeWalt", "Makita", "Milwaukee", "Husqvarna", "Black+Decker"]
+      },
+      {
+        "name": "Pruning Shears",
+        "brands": ["Felco", "Fiskars", "Corona", "Okatsune", "ARS", "Gardena", "Gonicc", "Spear & Jackson"]
+      },
+      {
+        "name": "Garden Hoses",
+        "brands": ["Flexzilla", "Gilmour", "Teknor Apex", "Bionic Steel", "Zero-G", "GrowGreen", "Briggs & Stratton", "Gardena"]
+      },
+      {
+        "name": "Watering Cans",
+        "brands": ["Haws", "Union Products", "Bosmere", "Bloem", "Gardena", "Novelty", "Behrens", "Fiskars"]
+      },
+      {
+        "name": "Wheelbarrows",
+        "brands": ["Worx", "Gorilla Carts", "Marathon", "True Temper", "Jackson", "Polar Trailer", "Ames", "Rubbermaid"]
+      },
+      {
+        "name": "Weed Eaters",
+        "brands": ["Ryobi", "EGO Power+", "Greenworks", "DeWalt", "Makita", "Milwaukee", "Husqvarna", "Black+Decker"]
+      },
+      {
+        "name": "Patio Heaters",
+        "brands": ["Hampton Bay", "Fire Sense", "AZ Patio Heaters", "Sunjoy", "Hiland", "Pamapic", "Dr. Infrared", "Bromic"]
+      }
+    ]
+  },
+  {
+    "id": "lighting",
+    "name": "Lighting & Lamps",
+    "color": "#f59e0b",
+    "items": [
+      {
+        "name": "Desk Lamps",
+        "brands": ["BenQ", "TaoTronics", "Philips", "Lightblade", "IKEA", "Dyson", "Lepro", "Globe Electric"]
+      },
+      {
+        "name": "Floor Lamps",
+        "brands": ["Brightech", "IKEA", "Adesso", "Globe Electric", "Kenroy Home", "Safavieh", "Target", "West Elm"]
+      },
+      {
+        "name": "Smart Bulbs",
+        "brands": ["Philips Hue", "LIFX", "TP-Link Kasa", "Nanoleaf", "Wyze", "Sengled", "Govee", "Yeelight"]
+      },
+      {
+        "name": "String Lights",
+        "brands": ["Brightech", "Addlon", "XMCOSY+", "Govee", "Philips", "Feit Electric", "Hampton Bay", "Pottery Barn"]
+      },
+      {
+        "name": "Flashlights",
+        "brands": ["Olight", "Fenix", "Anker", "Streamlight", "SureFire", "Maglite", "Coast", "ThruNite"]
+      },
+      {
+        "name": "Night Lights",
+        "brands": ["Eufy", "GE", "VAVA", "Hatch", "Casper", "Philips", "Lumos", "Xiaomi"]
+      },
+      {
+        "name": "Ceiling Fans",
+        "brands": ["Hunter", "Casablanca", "Minka-Aire", "Honeywell", "Prominence Home", "Westinghouse", "Big Ass Fans", "Harbor Breeze"]
+      },
+      {
+        "name": "Grow Lights",
+        "brands": ["Spider Farmer", "Mars Hydro", "VIPARSPECTRA", "Sansi", "Feit Electric", "GE", "Roleadro", "Vivosun"]
+      }
+    ]
+  },
+  {
+    "id": "cleaning",
+    "name": "Cleaning & Laundry",
+    "color": "#6366f1",
+    "items": [
+      {
+        "name": "Vacuum Cleaners",
+        "brands": ["Dyson", "Shark", "Miele", "Bissell", "Hoover", "iRobot", "Roborock", "Eufy"]
+      },
+      {
+        "name": "Steam Mops",
+        "brands": ["Bissell", "Shark", "PurSteam", "Black+Decker", "O-Cedar", "Dupray", "Reliable", "Euroflex"]
+      },
+      {
+        "name": "Air Purifiers",
+        "brands": ["Coway", "Levoit", "Blueair", "Dyson", "Honeywell", "Winix", "Alen", "Rabbit Air"]
+      },
+      {
+        "name": "Washing Machines",
+        "brands": ["LG", "Samsung", "Whirlpool", "Maytag", "GE", "Electrolux", "Bosch", "Speed Queen"]
+      },
+      {
+        "name": "Clothes Dryers",
+        "brands": ["LG", "Samsung", "Whirlpool", "Maytag", "GE", "Electrolux", "Bosch", "Speed Queen"]
+      },
+      {
+        "name": "Ironing Boards",
+        "brands": ["Brabantia", "Joseph Joseph", "Minky", "Household Essentials", "Bartnelli", "Reliable", "Whitmor", "Homz"]
+      },
+      {
+        "name": "Steam Irons",
+        "brands": ["Rowenta", "Chi", "Black+Decker", "Singer", "Panasonic", "Sunbeam", "Hamilton Beach", "Tefal"]
+      },
+      {
+        "name": "Robot Mops",
+        "brands": ["iRobot", "Roborock", "ECOVACS", "Narwal", "Shark", "Eufy", "Bissell", "Yeedi"]
+      }
+    ]
+  },
+  {
+    "id": "smarthome",
+    "name": "Smart Home Devices",
+    "color": "#059669",
+    "items": [
+      {
+        "name": "Smart Speakers",
+        "brands": ["Amazon", "Google", "Apple", "Sonos", "Bose", "JBL", "Harman Kardon", "Lenovo"]
+      },
+      {
+        "name": "Smart Thermostats",
+        "brands": ["Nest", "Ecobee", "Honeywell", "Emerson", "Wyze", "Mysa", "Bosch", "Lux"]
+      },
+      {
+        "name": "Security Cameras",
+        "brands": ["Ring", "Nest", "Arlo", "Eufy", "Wyze", "Blink", "Reolink", "TP-Link Tapo"]
+      },
+      {
+        "name": "Smart Doorlocks",
+        "brands": ["August", "Schlage", "Yale", "Kwikset", "Ultraloq", "Eufy", "Wyze", "Aqara"]
+      },
+      {
+        "name": "Video Doorbells",
+        "brands": ["Ring", "Nest", "Eufy", "Arlo", "Blink", "Logitech", "Wyze", "Amcrest"]
+      },
+      {
+        "name": "Smart Plugs",
+        "brands": ["TP-Link Kasa", "Wemo", "Wyze", "Meross", "Eve", "Philips Hue", "Sonoff", "Aqara"]
+      },
+      {
+        "name": "Robot Vacuums",
+        "brands": ["iRobot", "Roborock", "Eufy", "Shark", "ECOVACS", "Dreametech", "Neato", "Wyze"]
+      },
+      {
+        "name": "Smart Displays",
+        "brands": ["Amazon", "Google", "Facebook Portal", "Lenovo", "Apple", "Xiaomi", "Nest", "Harman Kardon"]
+      }
+    ]
+  },
+  {
+    "id": "stationery",
+    "name": "Books & Stationery",
+    "color": "#a855f7",
+    "items": [
+      {
+        "name": "Notebooks",
+        "brands": ["Moleskine", "Leuchtturm1917", "Rhodia", "Field Notes", "Rocketbook", "Clairefontaine", "Midori", "Hobonichi"]
+      },
+      {
+        "name": "Planners",
+        "brands": ["Erin Condren", "Happy Planner", "Passion Planner", "Panda Planner", "Hobonichi", "Filofax", "Moleskine", "FranklinPlanner"]
+      },
+      {
+        "name": "Sketchbooks",
+        "brands": ["Strathmore", "Canson", "Moleskine", "Leda Art Supply", "Arteza", "Derwent", "Hahnemühle", "Archer & Olive"]
+      },
+      {
+        "name": "Colored Pencils",
+        "brands": ["Prismacolor", "Faber-Castell", "Derwent", "Arteza", "Staedtler", "Caran d'Ache", "Castle Art", "Crayola"]
+      },
+      {
+        "name": "Fountain Pens",
+        "brands": ["Lamy", "Pilot", "Sailor", "TWSBI", "Platinum", "Kaweco", "Parker", "Pelikan"]
+      },
+      {
+        "name": "Highlighters",
+        "brands": ["Stabilo", "Zebra", "Sharpie", "Pilot", "Faber-Castell", "Bic", "Pentel", "Kokuyo"]
+      },
+      {
+        "name": "Sticky Notes",
+        "brands": ["Post-it", "AmazonBasics", "Scotch", "Mead", "3M", "Staples", "Muji", "Milan"]
+      },
+      {
+        "name": "Pencil Cases",
+        "brands": ["Eastpak", "Lihit Lab", "Kipling", "Muji", "Homecube", "Vaschy", "ZIPIT", "Kokuyo"]
+      }
+    ]
+  },
+  {
+    "id": "security",
+    "name": "Security & Safety",
+    "color": "#ef4444",
+    "items": [
+      {
+        "name": "Smoke Detectors",
+        "brands": ["Kidde", "First Alert", "Nest", "X-Sense", "Google", "Honeywell", "Onelink", "Firex"]
+      },
+      {
+        "name": "Fire Extinguishers",
+        "brands": ["Kidde", "First Alert", "Amerex", "Buckeye", "Badger", "Shield", "H3R Performance", "Fireade"]
+      },
+      {
+        "name": "Safes",
+        "brands": ["SentrySafe", "Honeywell", "AmazonBasics", "Tigerking", "Verifi", "Stealth", "Barska", "Yale"]
+      },
+      {
+        "name": "First Aid Kits",
+        "brands": ["Johnson & Johnson", "Coleman", "Swiss Safe", "Be Smart Get Prepared", "Adventure Medical", "Protect Life", "M2 Basics", "First Aid Only"]
+      },
+      {
+        "name": "Safety Flashlights",
+        "brands": ["Maglite", "Streamlight", "Pelican", "Olight", "Fenix", "SureFire", "Black Diamond", "Petzl"]
+      },
+      {
+        "name": "Door Barricades",
+        "brands": ["Nightlock", "Buddybar", "Haven", "U-Bar", "Master Lock", "Securityman", "Sabre", "Defender Security"]
+      },
+      {
+        "name": "CO Detectors",
+        "brands": ["Kidde", "First Alert", "Nest", "X-Sense", "Honeywell", "Onelink", "Nighthawk", "Universal Security"]
+      },
+      {
+        "name": "Motion Sensors",
+        "brands": ["Ring", "Nest", "Philips Hue", "Eve", "Aqara", "Wyze", "Bosch", "Ecolink"]
+      }
+    ]
+  },
+  {
+    "id": "storage",
+    "name": "Storage & Organization",
+    "color": "#22c55e",
+    "items": [
+      {
+        "name": "Plastic Bins",
+        "brands": ["Sterilite", "Rubbermaid", "IRIS USA", "Homz", "Akro-Mils", "ClearStyle", "Hefty", "Bella Storage"]
+      },
+      {
+        "name": "Storage Racks",
+        "brands": ["Gladiator", "Muscle Rack", "Seville Classics", "AmazonBasics", "FLEXIMOUNTS", "DeWalt", "Husky", "Trinity"]
+      },
+      {
+        "name": "Shoe Racks",
+        "brands": ["Seville Classics", "IKEA", "Songmics", "Simple Houseware", "Whitmor", "Honey-Can-Do", "AmazonBasics", "ClosetMaid"]
+      },
+      {
+        "name": "Closet Organizers",
+        "brands": ["Rubbermaid", "ClosetMaid", "Elfa", "IKEA", "Seville Classics", "Easy Track", "Songmics", "Honey-Can-Do"]
+      },
+      {
+        "name": "Food Containers",
+        "brands": ["Rubbermaid", "Tupperware", "Pyrex", "Glasslock", "OXO", "LocknLock", "Snapware", "Joseph Joseph"]
+      },
+      {
+        "name": "Hangers",
+        "brands": ["AmazonBasics", "Zober", "Songmics", "Velvet", "Whitmor", "Honey-Can-Do", "Mainstays", "Utopia Home"]
+      },
+      {
+        "name": "Cable Organizers",
+        "brands": ["J Channel", "D-Line", "Cordmate", "OHILL", "SOULWIT", "Baskiss", "Command", "Cable Clip"]
+      },
+      {
+        "name": "Toolboxes",
+        "brands": ["Stanley", "DeWalt", "Milwaukee", "Craftsman", "Husky", "Keter", "Ridgid", "Toyo"]
+      }
+    ]
+  },
+  {
+    "id": "audio",
+    "name": "Audio & Instruments",
+    "color": "#4f46e5",
+    "items": [
+      {
+        "name": "Headphones",
+        "brands": ["Sony", "Bose", "Sennheiser", "Audio-Technica", "Apple", "Beyerdynamic", "JBL", "Shure"]
+      },
+      {
+        "name": "Microphones",
+        "brands": ["Blue", "Shure", "Audio-Technica", "Rode", "Sennheiser", "Elgato", "HyperX", "Neumann"]
+      },
+      {
+        "name": "Bluetooth Speakers",
+        "brands": ["JBL", "Ultimate Ears", "Bose", "Sony", "Anker", "Marshall", "Sonos", "Bang & Olufsen"]
+      },
+      {
+        "name": "Keyboards & Pianos",
+        "brands": ["Yamaha", "Roland", "Casio", "Korg", "Nord", "Alesis", "Kawai", "Akai"]
+      },
+      {
+        "name": "Guitars",
+        "brands": ["Fender", "Gibson", "Taylor", "Martin", "Ibanez", "PRS", "Yamaha", "Epiphone"]
+      },
+      {
+        "name": "Audio Interfaces",
+        "brands": ["Focusrite", "Universal Audio", "PreSonus", "MOTU", "Audient", "Behringer", "SSL", "Mackie"]
+      },
+      {
+        "name": "Studio Monitors",
+        "brands": ["KRK", "Yamaha", "JBL", "PreSonus", "Genelec", "Adam Audio", "Kali Audio", "Mackie"]
+      },
+      {
+        "name": "Turntables",
+        "brands": ["Audio-Technica", "Pro-Ject", "Sony", "Denon", "Technics", "Pioneer", "Victrola", "Crosley"]
+      }
+    ]
+  }
+]
