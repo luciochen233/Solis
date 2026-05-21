@@ -22,6 +22,9 @@ var templates *template.Template
 var templateMap map[string]*template.Template
 
 var templateFuncs = template.FuncMap{
+	"safeJS": func(s string) template.JS {
+		return template.JS(s)
+	},
 	"formatPrice": func(p any) string {
 		switch v := p.(type) {
 		case float64:

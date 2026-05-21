@@ -436,7 +436,7 @@
 
         <script>
             // Parse catalog JSON data dynamically injected by handler
-            const catalog = {{.CatalogJSON}};
+            const catalog = {{safeJS .CatalogJSON}};
 
             let currentStep = 1;
             let selectedCategory = null;
