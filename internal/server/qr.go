@@ -3,13 +3,14 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/skip2/go-qrcode"
 )
 
 // GenerateQRCodePNG encodes a given string (e.g. short link URL) into a 256x256 PNG image
 func GenerateQRCodePNG(data string) ([]byte, error) {
-	png, err := qrcode.Encode(data, qrcode.Medium, 256)
+	png, err := qrcode.Encode(data, qrcode.Low, 256)
 	if err != nil {
 		return nil, fmt.Errorf("encoding qr code: %w", err)
 	}
@@ -34,8 +35,8 @@ func (s *Server) handleQR(w http.ResponseWriter, r *http.Request) {
 	// Build the absolute short URL
 	shortURL := fmt.Sprintf("%s/s/%s", s.cfg.Server.BaseURL, slug)
 
-	// Generate QR code PNG
-	pngData, err := GenerateQRCodePNG(shortURL)
+	// Generate QR code PNG in all caps for minimum redundancy alphanumeric mode
+	pngData, err := GenerateQRCodePNG(strings.ToUpper(shortURL))
 	if err != nil {
 		http.Error(w, "Failed to generate QR code", http.StatusInternalServerError)
 		return

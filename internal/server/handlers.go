@@ -56,6 +56,7 @@ func (s *Server) handleShortRedirect(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	slugVal = strings.ToLower(slugVal)
 
 	// Fetch redirect target by slug
 	link, err := s.db.GetLinkBySlug(slugVal)

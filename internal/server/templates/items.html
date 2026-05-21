@@ -168,7 +168,7 @@
         <!-- Wizard Card Box -->
         <div class="card" style="padding: 2.25rem;">
             <!-- Hidden Form to submit the selection -->
-            <form id="wizard-form" action="/admin/items/new" method="POST">
+            <form id="wizard-form" action="/admin/items/new" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                 <input type="hidden" name="wizard_flow" value="true">
                 <input type="hidden" id="input-category" name="category" value="">
