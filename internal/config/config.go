@@ -1,0 +1,99 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/BurntSushi/toml"
+)
+
+type Config struct {
+	Server   ServerConfig   `toml:"server"`
+	Admin    AdminConfig    `toml:"admin"`
+	Database DatabaseConfig `toml:"database"`
+	Slugs    SlugConfig     `toml:"slugs"`
+	Upload   UploadConfig   `toml:"upload"`
+}
+
+type ServerConfig struct {
+	Port         int    `toml:"port"`
+	BaseURL      string `toml:"base_url"`
+	ReadTimeout  string `toml:"read_timeout"`
+	WriteTimeout string `toml:"write_timeout"`
+}
+
+type AdminConfig struct {
+	Username     string `toml:"username"`
+	PasswordHash string `toml:"password_hash"`
+	SessionHours int    `toml:"session_hours"`
+}
+
+type DatabaseConfig struct {
+	Path string `toml:"path"`
+}
+
+type SlugConfig struct {
+	Length int `toml:"length"`
+}
+
+type UploadConfig struct {
+	Dir     string `toml:"dir"`
+	MaxSize int64  `toml:"max_size_mb"`
+}
+
+func (c *ServerConfig) ReadTimeoutDuration() time.Duration {
+	d, err := time.ParseDuration(c.ReadTimeout)
+	if err != nil {
+		return 5 * time.Second
+	}
+	return d
+}
+
+func (c *ServerConfig) WriteTimeoutDuration() time.Duration {
+	d, err := time.ParseDuration(c.WriteTimeout)
+	if err != nil {
+		return 10 * time.Second
+	}
+	return d
+}
+
+func Load(path string) (*Config, error) {
+	cfg := &Config{
+		Server: ServerConfig{
+			Port:         8889,
+			BaseURL:      "http://localhost:8889",
+			ReadTimeout:  "5s",
+			WriteTimeout: "10s",
+		},
+		Admin: AdminConfig{
+			Username:     "admin",
+			SessionHours: 24,
+		},
+		Database: DatabaseConfig{
+			Path: "./data/solis.db",
+		},
+		Slugs: SlugConfig{
+			Length: 4, // 4 characters gives plenty of short URL combinations (1.6M+) for home inventories
+		},
+		Upload: UploadConfig{
+			Dir:     "./data/uploads",
+			MaxSize: 10, // 10MB is plenty for home receipts and item photos
+		},
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading config: %w", err)
+	}
+
+	if err := toml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("parsing config: %w", err)
+	}
+
+	if cfg.Admin.PasswordHash == "" {
+		return nil, fmt.Errorf("admin.password_hash is required in config")
+	}
+
+	return cfg, nil
+}

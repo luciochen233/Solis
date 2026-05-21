@@ -1,0 +1,22 @@
+# Solis Reverse Proxy Configuration for Caddy
+# Replace solis.local or :80 with your domain name
+
+:80 {
+    # Compress responses with gzip or zstd
+    encode zstd gzip
+
+    # Set up reverse proxy to the Solis application
+    reverse_proxy http://localhost:8889 {
+        # Standard headers for secure reverse proxy
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Enable logging for access and errors
+    log {
+        output file /var/log/caddy/solis_access.log
+        format json
+    }
+}

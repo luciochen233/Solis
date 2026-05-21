@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solis | Sign In</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="brand">
+                <div class="brand-logo">S</div>
+                <span class="brand-name">Solis</span>
+            </div>
+            <h2 style="font-weight:700;font-size:1.5rem;letter-spacing:-0.01em;">Sign in to your assets</h2>
+            <p style="color:var(--color-text-muted);font-size:0.9rem;margin-top:0.25rem;">Enter your administrator credentials below</p>
+        </div>
+
+        {{if .Error}}
+            <div style="background-color:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; padding:0.75rem 1rem; border-radius:6px; font-size:0.9rem; margin-bottom:1.5rem; font-weight:500; text-align:center;">
+                {{.Error}}
+            </div>
+        {{end}}
+
+        <form action="/admin/login" method="POST">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-control" placeholder="e.g. admin" required autofocus>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 2rem;">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem 1.25rem; font-size: 1rem;">
+                Sign In
+            </button>
+        </form>
+    </div>
+</body>
+</html>

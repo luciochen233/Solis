@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}Solis | Home Assets{{end}}</title>
+    
+    <!-- Dynamic CSRF Metadata for HTMX requests -->
+    <meta name="csrf-token" content="{{.CSRFToken}}">
+    
+    <!-- Styles & Fonts -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+    
+    <!-- Self-contained scripts serving fully offline -->
+    <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/main.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">S</div>
+                <span class="brand-name">Solis</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul class="nav-list">
+                    <li class="nav-item {{if eq .ActiveNav "items"}}active{{end}}">
+                        <a href="/admin" class="nav-link">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                            </svg>
+                            Assets
+                        </a>
+                    </li>
+                    <li class="nav-item {{if eq .ActiveNav "locations"}}active{{end}}">
+                        <a href="/admin/locations" class="nav-link">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25g3 3 0 1115 0z" />
+                            </svg>
+                            Locations
+                        </a>
+                    </li>
+                    <li class="nav-item {{if eq .ActiveNav "tags"}}active{{end}}">
+                        <a href="/admin/tags" class="nav-link">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581a1.125 1.125 0 001.591 0l4.318-4.318a1.125 1.125 0 000-1.591l-9.581-9.581A2.25 2.25 0 009.568 3z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                            </svg>
+                            Tags
+                        </a>
+                    </li>
+                    <li class="nav-item {{if eq .ActiveNav "shortener"}}active{{end}}">
+                        <a href="/admin/shortener" class="nav-link">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                            </svg>
+                            Shortlinks
+                        </a>
+                    </li>
+                    <li class="nav-item {{if eq .ActiveNav "print"}}active{{end}}">
+                        <a href="/admin/print" class="nav-link">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0a2.25 2.25 0 01-2.247 2.118H8.587A2.25 2.25 0 016.34 18m11.32 0h.008v.008h-.008V18zm-12 0h.008v.008H5.66V18zm0-11.25h12.75c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125H5.66c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125z" />
+                            </svg>
+                            Print Labels
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+                <form action="/admin/logout" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                    <button type="submit" class="btn btn-secondary" style="width: 100%;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:16px;height:16px;margin-right:4px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                        </svg>
+                        Sign Out
+                    </button>
+                </form>
+            </div>
+        </aside>
+        
+        <!-- Main Content View Wrapper -->
+        <main class="main-wrapper">
+            {{template "content" .}}
+        </main>
+    </div>
+    
+    <!-- Dynamic Slide-in Alert Toasts -->
+    <div id="toast-container">
+        {{if .Toast}}
+            <div class="toast {{if eq .ToastType "success"}}toast-success{{else}}toast-error{{end}}">
+                <div class="toast-message">{{.Toast}}</div>
+                <button class="toast-close" onclick="dismissToast(this)">&times;</button>
+            </div>
+        {{end}}
+    </div>
+</body>
+</html>

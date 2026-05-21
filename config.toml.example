@@ -1,0 +1,24 @@
+# Solis Configuration Template
+
+[server]
+port = 8889
+base_url = "http://localhost:8889"
+read_timeout = "5s"
+write_timeout = "10s"
+
+[admin]
+username = "admin"
+# Default password: "admin" — CHANGE THIS IN PRODUCTION!
+# Generate a new bcrypt hash using: ./solis --hash-password "your-password"
+password_hash = "$2a$10$WXBoF7ZB7fIRl5smdGH9seqlNbXWiCS7ZbGNk0ONb9xjS8499gBpu"
+session_hours = 24
+
+[database]
+path = "./data/solis.db"
+
+[slugs]
+length = 4
+
+[upload]
+dir = "./data/uploads"
+max_size_mb = 10

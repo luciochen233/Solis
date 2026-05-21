@@ -1,0 +1,469 @@
+{{define "title"}}Solis | Assets{{end}}
+
+{{define "content"}}
+
+{{if .FormMode}}
+    <!-- ================== ASSET EDIT / CREATE FORM ================== -->
+    <div class="page-header">
+        <div class="page-title">
+            <h1>{{if .EditingItem}}Edit Asset: {{.EditingItem.Name}}{{else}}Add New Asset{{end}}</h1>
+            <p>Define inventory items, upload documentation, and generate automated QR codes.</p>
+        </div>
+        <div>
+            <a href="/admin" class="btn btn-secondary">Cancel</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <form action="{{if .EditingItem}}/admin/items/edit/{{.EditingItem.ID}}{{else}}/admin/items/new{{end}}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            
+            <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Basic Information</h3>
+            
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+                <div class="form-group">
+                    <label for="name" class="form-label">Asset Name</label>
+                    <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Cordless Hammer Drill" value="{{if .EditingItem}}{{.EditingItem.Name}}{{end}}" required>
+                </div>
+                <div class="form-group">
+                    <label for="quantity" class="form-label">Quantity</label>
+                    <input type="number" id="quantity" name="quantity" class="form-control" min="1" value="{{if .EditingItem}}{{.EditingItem.Quantity}}{{else}}1{{end}}" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">Description</label>
+                <textarea id="description" name="description" class="form-control" rows="3" placeholder="e.g. Brushless motor hammer drill, includes two 18V Li-ion batteries">{{if .EditingItem}}{{.EditingItem.Description}}{{end}}</textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div class="form-group">
+                    <label for="model_number" class="form-label">Model Number</label>
+                    <input type="text" id="model_number" name="model_number" class="form-control" placeholder="e.g. DCD796" value="{{if .EditingItem}}{{.EditingItem.ModelNumber}}{{end}}">
+                </div>
+                <div class="form-group">
+                    <label for="serial_number" class="form-label">Serial Number</label>
+                    <input type="text" id="serial_number" name="serial_number" class="form-control" placeholder="e.g. 2018-W42-9988" value="{{if .EditingItem}}{{.EditingItem.SerialNumber}}{{end}}">
+                </div>
+                <div class="form-group">
+                    <label for="status" class="form-label">Status</label>
+                    <select id="status" name="status" class="form-control">
+                        <option value="In Use" {{if .EditingItem}}{{if eq .EditingItem.Status "In Use"}}selected{{end}}{{end}}>In Use</option>
+                        <option value="In Storage" {{if .EditingItem}}{{if eq .EditingItem.Status "In Storage"}}selected{{end}}{{end}}>In Storage</option>
+                        <option value="Borrowed" {{if .EditingItem}}{{if eq .EditingItem.Status "Borrowed"}}selected{{end}}{{end}}>Borrowed</option>
+                        <option value="Lost" {{if .EditingItem}}{{if eq .EditingItem.Status "Lost"}}selected{{end}}{{end}}>Lost</option>
+                        <option value="Disposed" {{if .EditingItem}}{{if eq .EditingItem.Status "Disposed"}}selected{{end}}{{end}}>Disposed</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="form-group">
+                    <label for="location_id" class="form-label">Location</label>
+                    <select id="location_id" name="location_id" class="form-control" required>
+                        {{range .Locations}}
+                            <option value="{{.ID}}" {{if $.EditingItem}}{{if $.EditingItem.LocationID.Valid}}{{if eq .ID $.EditingItem.LocationID.Int64}}selected{{end}}{{end}}{{else}}{{if eq .ID 1}}selected{{end}}{{end}}>
+                                {{.Name}}
+                            </option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tags / Categories</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; border: 1px solid var(--color-border); padding: 0.625rem; border-radius: var(--radius-sm); background-color: var(--color-bg-base); max-height: 110px; overflow-y: auto;">
+                        {{range .Tags}}
+                            <label style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; font-weight: 500; cursor: pointer;">
+                                <input type="checkbox" name="tag_ids" value="{{.ID}}" data-tag-name="{{.Name}}" {{if $.EditingItem}}{{if hasTag $.EditingItem.Tags .ID}}checked{{end}}{{end}}>
+                                <span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span>
+                            </label>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Purchase & Warranty</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem;">
+                <div class="form-group">
+                    <label for="purchase_price" class="form-label">Purchase Price ($)</label>
+                    <input type="number" id="purchase_price" name="purchase_price" class="form-control" step="0.01" min="0" placeholder="e.g. 149.99" value="{{if .EditingItem}}{{if .EditingItem.PurchasePrice.Valid}}{{.EditingItem.PurchasePrice.Float64}}{{end}}{{end}}">
+                </div>
+                <div class="form-group">
+                    <label for="purchase_date" class="form-label">Purchase Date</label>
+                    <input type="date" id="purchase_date" name="purchase_date" class="form-control" value="{{if .EditingItem}}{{if .EditingItem.PurchaseDate.Valid}}{{.EditingItem.PurchaseDate.String}}{{end}}{{end}}">
+                </div>
+                <div class="form-group">
+                    <label for="warranty_months" class="form-label">Warranty (Months)</label>
+                    <input type="number" id="warranty_months" name="warranty_months" class="form-control" min="0" placeholder="e.g. 24" value="{{if .EditingItem}}{{if .EditingItem.WarrantyMonths.Valid}}{{.EditingItem.WarrantyMonths.Int64}}{{end}}{{end}}">
+                </div>
+                <div class="form-group">
+                    <label for="supplier" class="form-label">Supplier / Store</label>
+                    <input type="text" id="supplier" name="supplier" class="form-control" placeholder="e.g. Home Depot" value="{{if .EditingItem}}{{.EditingItem.Supplier}}{{end}}">
+                </div>
+            </div>
+
+            <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Documentation & Visuals</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div class="form-group">
+                    <label for="image" class="form-label">Item Photo</label>
+                    <input type="file" id="image" name="image" class="form-control" accept="image/*">
+                    {{if .EditingItem}}{{if .EditingItem.ImagePath}}
+                        <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">Active Image: {{.EditingItem.ImagePath}}</span>
+                    {{end}}{{end}}
+                </div>
+                <div class="form-group">
+                    <label for="receipt" class="form-label">Receipt / Invoice Document</label>
+                    <input type="file" id="receipt" name="receipt" class="form-control" accept="image/*,application/pdf">
+                    {{if .EditingItem}}{{if .EditingItem.ReceiptPath}}
+                        <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">Active Receipt: {{.EditingItem.ReceiptPath}}</span>
+                    {{end}}{{end}}
+                </div>
+            </div>
+
+            <h3 style="font-weight: 700; margin-bottom: 0.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Custom Fields</h3>
+            <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 1rem;">Enter custom parameters one per line as <code>Key: Value</code> (e.g. <code>Battery: 18v Lithium</code>). These will be parsed into indexed SQLite JSON dynamically.</p>
+            
+            <div class="form-group" style="margin-bottom: 2.5rem;">
+                <label for="custom_fields" class="form-label">Custom Fields Editor</label>
+                <textarea id="custom_fields" name="custom_fields" class="form-control" rows="4" placeholder="Battery: 18v&#10;MotorType: Brushless">{{.CustomFieldsRaw}}</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem;">
+                {{if .EditingItem}}Save Changes{{else}}Create Asset{{end}}
+            </button>
+        </form>
+    </div>
+
+{{else if .ViewMode}}
+    <!-- ================== ASSET VIEW DETAILS MODE ================== -->
+    <div class="page-header">
+        <div class="page-title">
+            <span style="color: var(--color-text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Asset Details</span>
+            <h1 style="margin-top: 0.15rem;">{{.Item.Name}}</h1>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <a href="/admin/items/edit/{{.Item.ID}}" class="btn btn-primary">
+                Edit Asset
+            </a>
+            <a href="/admin" class="btn btn-secondary">
+                Back to List
+            </a>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <!-- Detail Main Section -->
+        <div class="detail-main">
+            <!-- Basic info card -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                    <div>
+                        <div class="status-pill {{if eq .Item.Status "In Use"}}in-use{{else if eq .Item.Status "In Storage"}}in-storage{{else if eq .Item.Status "Borrowed"}}borrowed{{else if eq .Item.Status "Lost"}}lost{{else}}disposed{{end}}">
+                            {{.Item.Status}}
+                        </div>
+                        <span style="margin-left: 0.5rem; font-size: 0.9rem; color: var(--color-text-muted); font-weight: 500;">
+                            Quantity: <strong>{{.Item.Quantity}}</strong>
+                        </span>
+                    </div>
+                    <div class="tag-list">
+                        {{range .Item.Tags}}
+                            <span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span>
+                        {{end}}
+                    </div>
+                </div>
+
+                <h3 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 0.75rem;">Description</h3>
+                <p style="color: var(--color-text-muted); margin-bottom: 1.75rem;">
+                    {{if .Item.Description}}{{.Item.Description}}{{else}}<em>No description provided for this asset.</em>{{end}}
+                </p>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
+                    <div>
+                        <span style="font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Model Number</span>
+                        <span style="font-weight: 500; font-size: 1.05rem;">{{if .Item.ModelNumber}}{{.Item.ModelNumber}}{{else}}--{{end}}</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Serial Number</span>
+                        <span style="font-weight: 500; font-size: 1.05rem; font-family: monospace;">{{if .Item.SerialNumber}}{{.Item.SerialNumber}}{{else}}--{{end}}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image Visuals and Receipts -->
+            <div class="item-visuals">
+                <div class="card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                    <h4 style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:0.25rem;">Asset Photo</h4>
+                    <div class="visual-box">
+                        {{if .Item.ImagePath}}
+                            <img src="/uploads/{{.Item.ImagePath}}" alt="Asset Photo">
+                        {{else}}
+                            <div class="visual-placeholder">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 48px; height: 48px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                </svg>
+                                <span>No Photo Attached</span>
+                            </div>
+                        {{end}}
+                    </div>
+                </div>
+
+                <div class="card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                    <h4 style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:0.25rem;">Receipt / Invoice</h4>
+                    <div class="visual-box">
+                        {{if .Item.ReceiptPath}}
+                            <!-- receipts could be PDFs or images. Since we force downloads for PDFs, let's see. If it's pdf we show pdf icon, otherwise image -->
+                            <img src="/uploads/{{.Item.ReceiptPath}}" alt="Receipt">
+                            <div style="position: absolute; bottom: 0.5rem; right: 0.5rem;">
+                                <a href="/uploads/{{.Item.ReceiptPath}}" target="_blank" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: white;">
+                                    Open Document
+                                </a>
+                            </div>
+                        {{else}}
+                            <div class="visual-placeholder">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 48px; height: 48px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                </svg>
+                                <span>No Receipt Document</span>
+                            </div>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom fields card -->
+            <div class="card">
+                <h3 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 1.25rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Custom Asset Metadata</h3>
+                {{if .CustomFieldsMap}}
+                    <div class="data-table-wrapper">
+                        <table class="data-table">
+                            <tbody>
+                                {{range $key, $value := .CustomFieldsMap}}
+                                    <tr>
+                                        <td style="font-weight: 600; width: 200px; color: var(--color-text-muted); padding: 0.75rem 0.5rem;">{{$key}}</td>
+                                        <td style="font-family: monospace; font-size: 0.95rem; padding: 0.75rem 0.5rem;">{{$value}}</td>
+                                    </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+                {{else}}
+                    <p style="color: var(--color-text-light); font-size: 0.95rem; font-style: italic;">No custom metadata fields defined for this asset.</p>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Detail Sidebar Section -->
+        <div class="detail-sidebar">
+            <!-- QR code card -->
+            <div class="card qr-card">
+                <h4 style="font-weight: 700; color: var(--color-text-muted); font-size: 1.05rem;">Asset Label QR Code</h4>
+                {{if .Item.ShortSlug}}
+                    <img class="qr-image" src="/admin/qr/{{.Item.ShortSlug}}" alt="QR Code">
+                    <code style="font-family: monospace; background-color: var(--color-bg-base); padding: 0.35rem 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); font-weight: 600; font-size: 0.95rem;">
+                        s/{{.Item.ShortSlug}}
+                    </code>
+                    <a href="/admin/qr/{{.Item.ShortSlug}}" download="{{.Item.Name}}_QR.png" class="btn btn-secondary" style="width: 100%; font-size: 0.85rem;">
+                        Download Label Image
+                    </a>
+                {{else}}
+                    <span style="color: var(--color-text-light); font-size: 0.85rem;">No short URL associated.</span>
+                {{end}}
+            </div>
+
+            <!-- Purchase particulars card -->
+            <div class="card" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <h4 style="font-weight: 700; color: var(--color-text-muted); font-size: 1.05rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">Purchase Context</h4>
+                
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Purchase Price</span>
+                    <span style="font-weight: 700; font-size: 1.35rem; color: var(--color-brand-primary);">
+                        {{if .Item.PurchasePrice.Valid}}{{formatPrice .Item.PurchasePrice}}{{else}}--{{end}}
+                    </span>
+                </div>
+
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Supplier / Dealer</span>
+                    <span style="font-weight: 600; font-size: 1rem;">
+                        {{if .Item.Supplier}}{{.Item.Supplier}}{{else}}--{{end}}
+                    </span>
+                </div>
+
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Purchase Date</span>
+                    <span style="font-weight: 600; font-size: 1rem;">
+                        {{if .Item.PurchaseDate.Valid}}{{formatDate .Item.PurchaseDate}}{{else}}--{{end}}
+                    </span>
+                </div>
+
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Warranty Period</span>
+                    <span style="font-weight: 600; font-size: 1rem;">
+                        {{if .Item.WarrantyMonths.Valid}}{{.Item.WarrantyMonths.Int64}} Months{{else}}--{{end}}
+                    </span>
+                </div>
+
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Assigned Location</span>
+                    <span style="font-weight: 600; font-size: 1rem; color: var(--color-brand-primary);">
+                        {{if .Item.LocationName.Valid}}
+                            {{.Item.LocationName.String}}
+                        {{else}}
+                            <span style="color: var(--color-text-light); font-style: italic; font-weight: 500;">Unassigned</span>
+                        {{end}}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{{else}}
+    <!-- ================== DEFAULT: MAIN INVENTORY LIST ================== -->
+    <div class="page-header">
+        <div class="page-title">
+            <h1>Asset Inventory</h1>
+            <p>Track, manage, and label your home equipment and tools.</p>
+        </div>
+        <div>
+            <a href="/admin/items/new" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 18px; height: 18px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Add Asset
+            </a>
+        </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <form action="/admin" method="GET" class="filter-bar">
+        <div class="search-input-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.604 10.604z" />
+            </svg>
+            <input type="text" name="search" class="form-control" placeholder="Search by asset name, model, serial number..." value="{{.SearchQuery}}">
+        </div>
+        
+        <select name="status" class="form-control" style="width: 180px;" onchange="this.form.submit()">
+            <option value="">-- All Statuses --</option>
+            <option value="In Use" {{if eq .SelectedStatus "In Use"}}selected{{end}}>In Use</option>
+            <option value="In Storage" {{if eq .SelectedStatus "In Storage"}}selected{{end}}>In Storage</option>
+            <option value="Borrowed" {{if eq .SelectedStatus "Borrowed"}}selected{{end}}>Borrowed</option>
+            <option value="Lost" {{if eq .SelectedStatus "Lost"}}selected{{end}}>Lost</option>
+            <option value="Disposed" {{if eq .SelectedStatus "Disposed"}}selected{{end}}>Disposed</option>
+        </select>
+        
+        <select name="location" class="form-control" style="width: 200px;" onchange="this.form.submit()">
+            <option value="">-- All Locations --</option>
+            {{range .Locations}}
+                <option value="{{.ID}}" {{if eq $.SelectedLocation .ID}}selected{{end}}>{{.Name}}</option>
+            {{end}}
+        </select>
+        
+        <button type="submit" class="btn btn-secondary">Filter</button>
+        {{if or .SearchQuery (or .SelectedStatus .SelectedLocation)}}
+            <a href="/admin" class="btn btn-secondary" style="padding: 0.625rem;">Reset</a>
+        {{end}}
+    </form>
+
+    <!-- Assets Inventory Table -->
+    <div class="card" style="padding: 0;">
+        <div class="data-table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">QR Label</th>
+                        <th>Name</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th>Quantity</th>
+                        <th>Tags</th>
+                        <th style="width: 140px; text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{if .Items}}
+                        {{range .Items}}
+                            <tr>
+                                <td style="text-align: center; vertical-align: middle;">
+                                    {{if .ShortSlug}}
+                                        <a href="/admin/qr/{{.ShortSlug}}" target="_blank">
+                                            <img src="/admin/qr/{{.ShortSlug}}" alt="QR Label" style="width: 42px; height: 42px; border: 1px solid var(--color-border); padding: 1px; border-radius: 4px; background: white;">
+                                        </a>
+                                    {{else}}
+                                        <span style="color: var(--color-text-light); font-size: 0.75rem;">--</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <a href="/admin?view={{.ID}}" style="font-weight: 700; color: var(--color-text-main); text-decoration: none; font-size: 1.05rem;">
+                                            {{.Name}}
+                                        </a>
+                                        {{if .ModelNumber}}
+                                            <span style="color: var(--color-text-muted); font-size: 0.8rem; font-family: monospace;">Model: {{.ModelNumber}}</span>
+                                        {{end}}
+                                    </div>
+                                </td>
+                                <td>
+                                    {{if .LocationName.Valid}}
+                                        <span style="color: var(--color-brand-primary); font-weight: 500; font-size: 0.95rem;">
+                                            {{.LocationName.String}}
+                                        </span>
+                                    {{else}}
+                                        <span style="color: var(--color-text-light); font-style: italic; font-size: 0.9rem;">Unassigned</span>
+                                    {{end}}
+                                </td>
+                                <td>
+                                    <span class="status-pill {{if eq .Status "In Use"}}in-use{{else if eq .Status "In Storage"}}in-storage{{else if eq .Status "Borrowed"}}borrowed{{else if eq .Status "Lost"}}lost{{else}}disposed{{end}}">
+                                        {{.Status}}
+                                    </span>
+                                </td>
+                                <td style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); text-align: center;">
+                                    {{.Quantity}}
+                                </td>
+                                <td>
+                                    <div class="tag-list">
+                                        {{range .Tags}}
+                                            <span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span>
+                                        {{end}}
+                                    </div>
+                                </td>
+                                <td style="text-align: right;">
+                                    <div style="display: inline-flex; gap: 0.5rem; align-items: center;">
+                                        <a href="/admin?view={{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                            Details
+                                        </a>
+                                        <a href="/admin/items/edit/{{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                            Edit
+                                        </a>
+                                        <form action="/admin/items/delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to delete this asset? This cannot be undone.')" style="margin: 0;">
+                                            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                            <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {{end}}
+                    {{else}}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--color-text-light); padding: 5rem 1rem;">
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" style="width: 64px; height: 64px; color: var(--color-text-light);">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                                    </svg>
+                                    <div>
+                                        <h3 style="font-weight:600; color:var(--color-text-muted);">No assets found</h3>
+                                        <p style="font-size:0.9rem; margin-top:0.25rem;">Try refining your filters or click "Add Asset" to start tracking equipment.</p>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{{end}}
+
+{{end}}
