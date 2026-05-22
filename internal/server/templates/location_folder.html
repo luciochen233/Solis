@@ -1,0 +1,232 @@
+{{define "content"}}
+<div class="folder-view-container">
+    <!-- Folder View Header -->
+    <div class="folder-header">
+        <!-- Breadcrumbs Path -->
+        {{if .IsAuthenticated}}
+        <nav class="folder-breadcrumbs" aria-label="Breadcrumbs">
+            <a href="{{if $.IsAuthenticated}}/admin/locations{{else}}/default-room{{end}}" class="breadcrumb-item breadcrumb-home dropzone" data-location-id="1" data-type="location">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 16px; height: 16px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                </svg>
+                <span>Home</span>
+            </a>
+            {{range $idx, $crumb := .Breadcrumbs}}
+                {{if ne $crumb.ID 1}}
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="/{{$crumb.Slug}}" class="breadcrumb-item dropzone {{if eq $crumb.ID $.CurrentLocation.ID}}active{{end}}" data-location-id="{{$crumb.ID}}" data-type="location">
+                        {{$crumb.Name}}
+                    </a>
+                {{end}}
+            {{end}}
+        </nav>
+        {{end}}
+
+        <div class="folder-actions-wrapper">
+            <h1 class="folder-title">{{.CurrentLocation.Name}}</h1>
+            {{if .CurrentLocation.Description}}
+                <p class="folder-description">{{.CurrentLocation.Description}}</p>
+            {{end}}
+            
+            <div class="folder-controls" style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                {{if .IsAuthenticated}}
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <label class="checkbox-container" style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 500; color: var(--color-text-muted); cursor: pointer;">
+                        <input type="checkbox" id="toggle-removed-checkbox" {{if .ShowRemoved}}checked{{end}} onchange="toggleShowRemoved(this)" style="accent-color: var(--color-brand-primary); cursor: pointer;">
+                        Show removed items
+                    </label>
+                </div>
+                {{end}}
+
+                {{if .IsAuthenticated}}
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="/admin/locations/edit/{{.CurrentLocation.ID}}" class="btn btn-secondary" style="font-size: 0.85rem; padding: 0.5rem 1rem;">
+                        Edit Location
+                    </a>
+                    <a href="/admin/items/new?location_id={{.CurrentLocation.ID}}" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.5rem 1rem;">
+                        Add Asset Here
+                    </a>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Move Up Drop Zone (Visible when inside a nested folder & authenticated) -->
+    {{if .IsAuthenticated}}
+        {{if .CurrentLocation.ParentID.Valid}}
+            <div class="move-up-zone dropzone" data-location-id="{{.CurrentLocation.ParentID.Int64}}" data-type="location">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px; color: var(--color-brand-primary);">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 19.5v-15m0 0l-6.75 6.75M12 4.5l6.75 6.75" />
+                </svg>
+                <span>Drag items or folders here to move up to the parent directory</span>
+            </div>
+        {{end}}
+    {{end}}
+
+    <!-- Sub-folders Section -->
+    {{if .IsAuthenticated}}
+    <div class="directory-section">
+        <h2 class="section-title">Folders</h2>
+        <div class="folders-grid">
+            {{if not .ChildLocations}}
+                <div class="empty-state-card" style="grid-column: 1 / -1;">
+                    <p>No sub-folders in this location.</p>
+                </div>
+            {{else}}
+                {{range .ChildLocations}}
+                    <div class="folder-card dropzone {{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}" 
+                         {{if $.IsAuthenticated}}draggable="true"{{end}} 
+                         data-location-id="{{.ID}}" 
+                         data-type="location">
+                        <div class="folder-card-main">
+                            <div class="folder-icon-wrapper">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="folder-icon">
+                                    <path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a3 3 0 012.122.879l1.242 1.242a3 3 0 002.122.879H19.5a3 3 0 013 3v2.146a4.487 4.487 0 00-3-1.146h-15a4.487 4.487 0 00-3 1.146z" />
+                                </svg>
+                            </div>
+                            <div class="folder-info">
+                                <a href="/{{.Slug}}" class="folder-name-link">{{.Name}}</a>
+                                <span class="folder-badge">{{if eq .LifecycleState "removed"}}Removed{{else if eq .LifecycleState "archived"}}Archived{{else}}Active{{end}}</span>
+                            </div>
+                        </div>
+                        {{if $.IsAuthenticated}}
+                        <div class="actions-dropdown">
+                            <button class="btn-icon" onclick="toggleActionsDropdown(this, event)" aria-label="Actions">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:16px;height:16px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                                </svg>
+                            </button>
+                            <div class="actions-dropdown-menu">
+                                <a href="/admin/locations/edit/{{.ID}}" class="actions-dropdown-item">
+                                    Edit Folder
+                                </a>
+                                {{if eq .LifecycleState "removed"}}
+                                    <form action="/admin/locations/restore/{{.ID}}" method="POST" style="margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="actions-dropdown-item text-warning">Restore Folder</button>
+                                    </form>
+                                    <form action="/admin/locations/delete/{{.ID}}" method="POST" style="margin:0;" onsubmit="return confirm('Are you sure you want to permanently delete this location? All items inside will be moved to the Default Room.');">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="actions-dropdown-item text-danger">Delete Permanently</button>
+                                    </form>
+                                {{else}}
+                                    <form action="/admin/locations/archive/{{.ID}}" method="POST" style="margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="actions-dropdown-item text-warning">Archive Folder</button>
+                                    </form>
+                                    <form action="/admin/locations/remove/{{.ID}}" method="POST" style="margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="actions-dropdown-item text-danger">Remove Folder</button>
+                                    </form>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                {{end}}
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Assets / Items Section -->
+    {{if .IsAuthenticated}}
+    <div class="directory-section" style="margin-top: 3rem;">
+        <h2 class="section-title">Assets</h2>
+        <div class="items-grid">
+            {{if not .Items}}
+                <div class="empty-state-card" style="grid-column: 1 / -1; padding: 3rem 2rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:48px;height:48px;color:var(--color-text-light);margin-bottom:0.75rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                    </svg>
+                    <p style="color:var(--color-text-muted);font-weight:500;">No assets found in this location.</p>
+                </div>
+            {{else}}
+                {{range .Items}}
+                    <div class="item-card {{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}" 
+                         {{if $.IsAuthenticated}}draggable="true"{{end}} 
+                         data-item-id="{{.ID}}" 
+                         data-type="item">
+                        <div class="item-card-image">
+                            {{if .ImagePath}}
+                                <img src="/uploads/{{.ImagePath}}" alt="{{.Name}}">
+                            {{else}}
+                                <div class="item-image-placeholder">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                    </svg>
+                                </div>
+                            {{end}}
+                        </div>
+                        <div class="item-card-body">
+                            <div class="item-card-header">
+                                <a href="/{{$.CurrentLocation.Slug}}/{{.ShortSlug}}" class="item-card-title">{{.Name}}</a>
+                                <span class="status-pill {{if eq .Status "In Use"}}in-use{{else if eq .Status "In Storage"}}in-storage{{else if eq .Status "Borrowed"}}borrowed{{else if eq .Status "Lost"}}lost{{else}}disposed{{end}}">{{.Status}}</span>
+                            </div>
+                            <p class="item-card-meta">
+                                <span>Qty: <strong>{{.Quantity}}</strong></span>
+                                {{if .ModelNumber}}<span>&bull; Model: <strong>{{.ModelNumber}}</strong></span>{{end}}
+                            </p>
+                            <div class="item-card-tags">
+                                {{range .Tags}}
+                                    <span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{if $.IsAuthenticated}}
+                        <div class="actions-dropdown" style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 10;">
+                            <button class="btn-icon card-actions-btn" onclick="toggleActionsDropdown(this, event)" aria-label="Actions">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:16px;height:16px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                                </svg>
+                            </button>
+                            <div class="actions-dropdown-menu">
+                                <a href="/admin/items/edit/{{.ID}}" class="actions-dropdown-item">
+                                    Edit Asset
+                                </a>
+                                <button type="button" class="actions-dropdown-item" onclick="openQRModal('{{.ShortSlug}}', '{{.Name}}')">
+                                    Show QR Code
+                                </button>
+                                {{if eq .LifecycleState "removed"}}
+                                    <form action="/admin/items/restore/{{.ID}}" method="POST" style="margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="actions-dropdown-item text-warning">Restore Asset</button>
+                                    </form>
+                                    <form action="/admin/items/delete/{{.ID}}" method="POST" style="margin:0;" onsubmit="return confirm('Are you sure you want to permanently delete this asset? This cannot be undone.');">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="actions-dropdown-item text-danger">Delete Permanently</button>
+                                    </form>
+                                {{else}}
+                                    <form action="/admin/items/archive/{{.ID}}" method="POST" style="margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="actions-dropdown-item text-warning">Archive Asset</button>
+                                    </form>
+                                    <form action="/admin/items/remove/{{.ID}}" method="POST" style="margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                        <button type="submit" class="actions-dropdown-item text-danger">Remove Asset</button>
+                                    </form>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                {{end}}
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+</div>
+
+<script>
+    function toggleShowRemoved(checkbox) {
+        const url = new URL(window.location.href);
+        if (checkbox.checked) {
+            url.searchParams.set("show_removed", "1");
+        } else {
+            url.searchParams.delete("show_removed");
+        }
+        window.location.href = url.toString();
+    }
+</script>
+{{end}}
