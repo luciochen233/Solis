@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -97,7 +96,7 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		CSRFToken: csrfToken(w, r),
+		CSRFToken: s.csrfToken(w, r),
 	}
 	s.render(w, r, "login.html", data)
 }
@@ -106,7 +105,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	ip := clientIP(r)
 	if !s.limiter.Allow(ip) {
 		data := PageData{
-			CSRFToken: csrfToken(w, r),
+			CSRFToken: s.csrfToken(w, r),
 			Error:     "Too many login attempts. Please wait.",
 		}
 		w.WriteHeader(http.StatusTooManyRequests)
@@ -131,12 +130,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Set highly secure session cookie
 		http.SetCookie(w, &http.Cookie{
 			Name:     "session",
 			Value:    token,
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   s.isHTTPS(),
 			SameSite: http.SameSiteLaxMode,
 			MaxAge:   int(time.Duration(s.cfg.Admin.SessionHours) * time.Hour / time.Second),
 		})
@@ -146,7 +145,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		CSRFToken: csrfToken(w, r),
+		CSRFToken: s.csrfToken(w, r),
 		Error:     "Invalid username or password.",
 	}
 	s.render(w, r, "login.html", data)
@@ -175,7 +174,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 // ==========================================
 
 func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
-	csrf := csrfToken(w, r)
+	csrf := s.csrfToken(w, r)
 	showRemoved := r.URL.Query().Get("show_removed") == "1"
 	locations, _ := s.db.ListLocations(showRemoved)
 	tags, _ := s.db.ListTags(showRemoved)
@@ -295,7 +294,7 @@ func (s *Server) handleItemNew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		CSRFToken:   csrfToken(w, r),
+		CSRFToken:   s.csrfToken(w, r),
 		ActiveNav:   "items",
 		Locations:   locations,
 		Tags:        tags,
@@ -485,7 +484,7 @@ func (s *Server) handleItemEdit(w http.ResponseWriter, r *http.Request) {
 	customFieldsRaw := formatCustomFields(item.CustomFields)
 
 	data := PageData{
-		CSRFToken:       csrfToken(w, r),
+		CSRFToken:       s.csrfToken(w, r),
 		ActiveNav:       "items",
 		Locations:       locations,
 		Tags:            tags,
@@ -680,7 +679,7 @@ func (s *Server) handleItemPermanentDelete(w http.ResponseWriter, r *http.Reques
 // ==========================================
 
 func (s *Server) handleAdminLocations(w http.ResponseWriter, r *http.Request) {
-	csrf := csrfToken(w, r)
+	csrf := s.csrfToken(w, r)
 	showRemoved := r.URL.Query().Get("show_removed") == "1"
 	locations, _ := s.db.ListLocations(showRemoved)
 
@@ -792,7 +791,7 @@ func (s *Server) handleLocationPermanentDelete(w http.ResponseWriter, r *http.Re
 // ==========================================
 
 func (s *Server) handleAdminTags(w http.ResponseWriter, r *http.Request) {
-	csrf := csrfToken(w, r)
+	csrf := s.csrfToken(w, r)
 	showRemoved := r.URL.Query().Get("show_removed") == "1"
 	tags, _ := s.db.ListTags(showRemoved)
 
@@ -894,7 +893,7 @@ func (s *Server) handleTagPermanentDelete(w http.ResponseWriter, r *http.Request
 // ==========================================
 
 func (s *Server) handleAdminShortener(w http.ResponseWriter, r *http.Request) {
-	csrf := csrfToken(w, r)
+	csrf := s.csrfToken(w, r)
 	showRemoved := r.URL.Query().Get("show_removed") == "1"
 	links, _ := s.db.ListLinks(showRemoved)
 
@@ -933,6 +932,11 @@ func (s *Server) handleLinkCreate(w http.ResponseWriter, r *http.Request) {
 
 	if urlVal == "" {
 		http.Redirect(w, r, "/admin/shortener?toast=Destination+URL+is+required&toast_type=error", http.StatusSeeOther)
+		return
+	}
+
+	if !isValidRedirectURL(urlVal) {
+		http.Redirect(w, r, "/admin/shortener?toast=URL+must+use+http,+https,+or+be+a+relative+path&toast_type=error", http.StatusSeeOther)
 		return
 	}
 
@@ -983,6 +987,11 @@ func (s *Server) handleLinkSave(w http.ResponseWriter, r *http.Request) {
 	// Validate slug
 	if err := slug.Validate(slugVal); err != nil {
 		http.Redirect(w, r, fmt.Sprintf("/admin/shortener?toast=%s&toast_type=error", err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	if !isValidRedirectURL(urlVal) {
+		http.Redirect(w, r, "/admin/shortener?toast=URL+must+use+http,+https,+or+be+a+relative+path&toast_type=error", http.StatusSeeOther)
 		return
 	}
 
@@ -1050,19 +1059,7 @@ func (s *Server) handleSlugLengthUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Update in-memory config
 	s.cfg.Slugs.Length = length
-
-	// Persist to config.toml
-	configPath := "config.toml"
-	data, err := os.ReadFile(configPath)
-	if err == nil {
-		content := string(data)
-		// Replace the length line in the [slugs] section
-		re := regexp.MustCompile(`(?m)^(\s*length\s*=\s*)\d+`)
-		content = re.ReplaceAllString(content, "${1}"+strconv.Itoa(length))
-		_ = os.WriteFile(configPath, []byte(content), 0644)
-	}
 
 	http.Redirect(w, r, "/admin/shortener?toast=Slug+length+updated+to+"+strconv.Itoa(length)+"+characters&toast_type=success", http.StatusSeeOther)
 }
@@ -1072,7 +1069,7 @@ func (s *Server) handleSlugLengthUpdate(w http.ResponseWriter, r *http.Request) 
 // ==========================================
 
 func (s *Server) handlePrintLabels(w http.ResponseWriter, r *http.Request) {
-	csrf := csrfToken(w, r)
+	csrf := s.csrfToken(w, r)
 	items, err := s.db.ListItems(false)
 	if err != nil {
 		http.Error(w, "Failed to load labels", http.StatusInternalServerError)
@@ -1192,6 +1189,10 @@ func formatCustomFields(jsonStr string) string {
 		sb.WriteString(fmt.Sprintf("%s: %s\n", k, v))
 	}
 	return sb.String()
+}
+
+func isValidRedirectURL(u string) bool {
+	return strings.HasPrefix(u, "/") || strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://")
 }
 
 func (s *Server) resolveRoomTag(locationID int64, tagIDs []int64) []int64 {
@@ -1335,7 +1336,7 @@ func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		CSRFToken:       csrfToken(w, r),
+		CSRFToken:       s.csrfToken(w, r),
 		ActiveNav:       "locations",
 		CurrentLocation: loc,
 		ChildLocations:  childLocs,
@@ -1402,7 +1403,7 @@ func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
 	tags, _ := s.db.ListTags(false)
 
 	data := PageData{
-		CSRFToken:       csrfToken(w, r),
+		CSRFToken:       s.csrfToken(w, r),
 		ActiveNav:       "items",
 		Item:            item,
 		ViewMode:        true,

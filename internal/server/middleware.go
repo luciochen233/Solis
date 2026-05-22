@@ -92,9 +92,7 @@ func (srv *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// csrfToken returns the CSRF token for this session, creating one if needed.
-// Uses a lax cookie, embedded in HTMX meta templates and form files.
-func csrfToken(w http.ResponseWriter, r *http.Request) string {
+func (s *Server) csrfToken(w http.ResponseWriter, r *http.Request) string {
 	if c, err := r.Cookie("csrf"); err == nil && len(c.Value) == 64 {
 		return c.Value
 	}
@@ -105,6 +103,7 @@ func csrfToken(w http.ResponseWriter, r *http.Request) string {
 		Name:     "csrf",
 		Value:    token,
 		Path:     "/",
+		Secure:   s.isHTTPS(),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   86400,
 	})
@@ -175,15 +174,25 @@ func (rl *rateLimiter) Allow(ip string) bool {
 }
 
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if i := strings.Index(xff, ","); i > 0 {
-			return strings.TrimSpace(xff[:i])
-		}
-		return strings.TrimSpace(xff)
-	}
-	if xri := r.Header.Get("X-Real-Ip"); xri != "" {
-		return strings.TrimSpace(xri)
-	}
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if isPrivateIP(host) {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			if i := strings.Index(xff, ","); i > 0 {
+				return strings.TrimSpace(xff[:i])
+			}
+			return strings.TrimSpace(xff)
+		}
+		if xri := r.Header.Get("X-Real-Ip"); xri != "" {
+			return strings.TrimSpace(xri)
+		}
+	}
 	return host
+}
+
+func isPrivateIP(ipStr string) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate()
 }

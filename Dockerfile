@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GOARM=6 \
 # ==========================================
 # Final Stage
 # ==========================================
-FROM alpine:latest
+FROM alpine:3.20
 
 # Install basic certificates and tools
 RUN apk add --no-cache ca-certificates tzdata

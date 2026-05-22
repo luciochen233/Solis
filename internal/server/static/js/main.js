@@ -255,10 +255,18 @@ function showToast(message, type) {
 
     const toast = document.createElement("div");
     toast.className = `toast ${type === "success" ? "toast-success" : "toast-error"}`;
-    toast.innerHTML = `
-        <div class="toast-message">${message}</div>
-        <button class="toast-close" onclick="dismissToast(this)">&times;</button>
-    `;
+
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "toast-message";
+    msgDiv.textContent = message;
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "toast-close";
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", function() { dismissToast(closeBtn); });
+
+    toast.appendChild(msgDiv);
+    toast.appendChild(closeBtn);
     container.appendChild(toast);
 }
 

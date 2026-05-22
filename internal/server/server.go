@@ -39,23 +39,29 @@ func New(cfg *config.Config, database *db.DB) *Server {
 	}
 }
 
-func securityHeaders(next http.Handler) http.Handler {
+func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		
-		// Offline-first CSP: Only allows local static resources and fonts from Google Fonts
-		w.Header().Set("Content-Security-Policy", 
+		if s.isHTTPS() {
+			w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		}
+
+		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-			"script-src 'self' 'unsafe-inline'; "+
-			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
-			"font-src 'self' https://fonts.gstatic.com; "+
-			"img-src 'self' data:; "+
-			"connect-src 'self';")
-			
+				"script-src 'self' 'unsafe-inline'; "+
+				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
+				"font-src 'self' https://fonts.gstatic.com; "+
+				"img-src 'self' data:; "+
+				"connect-src 'self';")
+
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) isHTTPS() bool {
+	return strings.HasPrefix(s.cfg.Server.BaseURL, "https")
 }
 
 // lowercasePath normalises URL paths to lowercase so that short links are case-insensitive.
@@ -165,7 +171,7 @@ func (s *Server) Start() error {
 	addr := fmt.Sprintf(":%d", s.cfg.Server.Port)
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      lowercasePath(securityHeaders(mux)),
+		Handler:      lowercasePath(s.securityHeaders(mux)),
 		ReadTimeout:  s.cfg.Server.ReadTimeoutDuration(),
 		WriteTimeout: s.cfg.Server.WriteTimeoutDuration(),
 	}
