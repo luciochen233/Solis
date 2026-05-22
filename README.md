@@ -135,6 +135,10 @@ username = "admin"
 password_hash = "$2a$10$WXBoF7ZB7fIRl5smdGH9seqlNbXWiCS7ZbGNk0ONb9xjS8499gBpu"
 session_hours = 24
 
+[mcp]
+enabled = false                         # Enable the MCP endpoint at POST /mcp
+api_key = ""                            # Send as Authorization: Bearer <api_key> or X-API-Key
+
 [database]
 path = "./data/solis.db"             # Path to your SQLite DB file
 
@@ -148,6 +152,18 @@ max_size_mb = 50                     # Maximum file upload size in MB
 
 > [!WARNING]
 > Always change the default `password_hash` in `config.toml` before exposing your server to the internet or local networks.
+
+### MCP Access
+
+Solis can expose a Model Context Protocol endpoint at `POST /mcp`. Enable it in `config.toml`:
+
+```toml
+[mcp]
+enabled = true
+api_key = "replace-with-a-long-random-token"
+```
+
+MCP clients can authenticate with `Authorization: Bearer <api_key>` or `X-API-Key: <api_key>`. Basic auth using the configured admin username and password is also accepted. The MCP endpoint exposes tools for listing, creating, updating, removing, archiving, restoring, and permanently deleting items, locations, and tags.
 
 ---
 

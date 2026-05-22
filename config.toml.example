@@ -16,6 +16,13 @@ username = "admin"
 password_hash = "$2a$10$WXBoF7ZB7fIRl5smdGH9seqlNbXWiCS7ZbGNk0ONb9xjS8499gBpu"
 session_hours = 24
 
+[mcp]
+# Exposes a Model Context Protocol endpoint at POST /mcp.
+enabled = false
+# Recommended for MCP clients. Send as Authorization: Bearer <api_key> or X-API-Key.
+# Basic auth with the admin username/password is also accepted.
+api_key = ""
+
 [database]
 path = "./data/solis.db"
 

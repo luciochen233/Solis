@@ -79,9 +79,9 @@ func (s *Server) isHTTPS() bool {
 func lowercasePath(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		lower := strings.ToLower(r.URL.Path)
-		if lower != r.URL.Path && 
-			!strings.HasPrefix(r.URL.Path, "/static/") && 
-			!strings.HasPrefix(lower, "/admin") && 
+		if lower != r.URL.Path &&
+			!strings.HasPrefix(r.URL.Path, "/static/") &&
+			!strings.HasPrefix(lower, "/admin") &&
 			!strings.HasPrefix(r.URL.Path, "/uploads/") {
 			r.URL.Path = lower
 			http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
@@ -169,13 +169,17 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /admin/qr/{slug}", s.requireAuth(s.handleQR))
 	mux.HandleFunc("GET /admin/print", s.requireAuth(s.handlePrintLabels))
 
-	// 11. Folder & Public Item Views (Wildcards)
+	// 11. MCP endpoint
+	if s.cfg.MCP.Enabled {
+		mux.HandleFunc("POST /mcp", s.handleMCP)
+	}
+
+	// 12. Folder & Public Item Views (Wildcards)
 	mux.HandleFunc("GET /{path...}", s.handlePublicFallback)
 
-	// 12. Asynchronous move endpoints
+	// 13. Asynchronous move endpoints
 	mux.HandleFunc("POST /admin/items/move", s.requireAuth(s.requireCSRF(s.handleItemMove)))
 	mux.HandleFunc("POST /admin/locations/move", s.requireAuth(s.requireCSRF(s.handleLocationMove)))
-
 
 	// Listen and serve
 	addr := fmt.Sprintf(":%d", s.cfg.Server.Port)
