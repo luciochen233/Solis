@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS locations (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     name            TEXT NOT NULL,
+    slug            TEXT NOT NULL DEFAULT '',
     description     TEXT NOT NULL DEFAULT '',
     parent_id       INTEGER REFERENCES locations(id) ON DELETE SET NULL,
     image_path      TEXT NOT NULL DEFAULT '',
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS locations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_locations_parent ON locations(parent_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_locations_slug ON locations(slug);
 
 -- 2. Tags Table (Sleek labels for grouping items)
 CREATE TABLE IF NOT EXISTS tags (

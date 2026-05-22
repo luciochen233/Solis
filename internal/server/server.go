@@ -153,6 +153,14 @@ func (s *Server) Start() error {
 	mux.HandleFunc("GET /admin/qr/{slug}", s.requireAuth(s.handleQR))
 	mux.HandleFunc("GET /admin/print", s.requireAuth(s.handlePrintLabels))
 
+	// 11. Folder & Public Item Views (Wildcards)
+	mux.HandleFunc("GET /{path...}", s.handlePublicFallback)
+
+	// 12. Asynchronous move endpoints
+	mux.HandleFunc("POST /admin/items/move", s.requireAuth(s.requireCSRF(s.handleItemMove)))
+	mux.HandleFunc("POST /admin/locations/move", s.requireAuth(s.requireCSRF(s.handleLocationMove)))
+
+
 	// Listen and serve
 	addr := fmt.Sprintf(":%d", s.cfg.Server.Port)
 	srv := &http.Server{

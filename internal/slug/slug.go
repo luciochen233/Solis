@@ -10,6 +10,22 @@ import (
 	"strings"
 )
 
+func Slugify(name string) string {
+	name = strings.ToLower(name)
+	name = strings.ReplaceAll(name, " ", "-")
+	// Remove non-alphanumeric chars (except - and _)
+	reg := regexp.MustCompile(`[^a-z0-9_-]+`)
+	name = reg.ReplaceAllString(name, "")
+	// Collapse multiple hyphens
+	reg2 := regexp.MustCompile(`-+`)
+	name = reg2.ReplaceAllString(name, "-")
+	name = strings.Trim(name, "-")
+	if name == "" {
+		name = "location"
+	}
+	return name
+}
+
 const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 var reservedSlugs = map[string]bool{

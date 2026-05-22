@@ -105,6 +105,7 @@ func initTemplates() {
 		"tags.html",
 		"shortener.html",
 		"print_labels.html",
+		"location_folder.html",
 	}
 
 	for _, page := range layoutPages {

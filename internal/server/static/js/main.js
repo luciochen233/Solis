@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3. Room-tag locking on the item create/edit form
     initRoomTagLock();
+
+    // 4. Initialize drag and drop mechanics for directories and assets
+    initDragAndDrop();
 });
 
 function setupToastListeners() {
@@ -122,4 +125,140 @@ document.addEventListener("click", () => {
         d.classList.remove("show");
     });
 });
+
+// 5. Drag & Drop Directory Move Management
+function initDragAndDrop() {
+    const draggables = document.querySelectorAll("[draggable='true']");
+    const dropzones = document.querySelectorAll(".dropzone");
+    
+    let draggedElement = null;
+
+    draggables.forEach(draggable => {
+        draggable.addEventListener("dragstart", (e) => {
+            draggedElement = draggable;
+            draggable.classList.add("dragging");
+            
+            const type = draggable.dataset.type;
+            const id = type === "location" ? draggable.dataset.locationId : draggable.dataset.itemId;
+            
+            e.dataTransfer.setData("text/plain", JSON.stringify({ id, type }));
+            e.dataTransfer.effectAllowed = "move";
+        });
+
+        draggable.addEventListener("dragend", () => {
+            draggable.classList.remove("dragging");
+            draggedElement = null;
+            dropzones.forEach(zone => zone.classList.remove("drop-active"));
+        });
+    });
+
+    dropzones.forEach(zone => {
+        zone.addEventListener("dragover", (e) => {
+            e.preventDefault(); // Required to allow drop!
+            
+            if (!draggedElement) return;
+            
+            const draggedType = draggedElement.dataset.type;
+            const draggedId = draggedType === "location" ? draggedElement.dataset.locationId : draggedElement.dataset.itemId;
+            const zoneLocId = zone.dataset.locationId;
+            
+            // Prevent folder dropping on itself
+            if (draggedType === "location" && draggedId === zoneLocId) {
+                return;
+            }
+            
+            zone.classList.add("drop-active");
+        });
+
+        zone.addEventListener("dragleave", () => {
+            zone.classList.remove("drop-active");
+        });
+
+        zone.addEventListener("drop", async (e) => {
+            e.preventDefault();
+            zone.classList.remove("drop-active");
+
+            try {
+                const rawData = e.dataTransfer.getData("text/plain");
+                if (!rawData) return;
+                const data = JSON.parse(rawData);
+                const targetLocationId = zone.dataset.locationId;
+
+                if (!data.id || !targetLocationId) return;
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+                if (data.type === "item") {
+                    // Move item to a location
+                    const response = await fetch("/admin/items/move", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "X-CSRF-Token": csrfToken
+                        },
+                        body: new URLSearchParams({
+                            "item_id": data.id,
+                            "location_id": targetLocationId,
+                            "csrf_token": csrfToken
+                        })
+                    });
+
+                    if (response.ok) {
+                        showSuccessToast("Asset moved successfully!");
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        const errMsg = await response.text();
+                        showErrorToast(errMsg || "Failed to move asset");
+                    }
+                } else if (data.type === "location") {
+                    // Move location inside another location
+                    const response = await fetch("/admin/locations/move", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "X-CSRF-Token": csrfToken
+                        },
+                        body: new URLSearchParams({
+                            "location_id": data.id,
+                            "parent_id": targetLocationId,
+                            "csrf_token": csrfToken
+                        })
+                    });
+
+                    if (response.ok) {
+                        showSuccessToast("Folder moved successfully!");
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        const errMsg = await response.text();
+                        showErrorToast(errMsg || "Failed to move folder");
+                    }
+                }
+            } catch (err) {
+                console.error("Error during drag-and-drop drop event:", err);
+                showErrorToast("An error occurred during drag-and-drop");
+            }
+        });
+    });
+}
+
+function showSuccessToast(message) {
+    showToast(message, "success");
+}
+
+function showErrorToast(message) {
+    showToast(message, "error");
+}
+
+function showToast(message, type) {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast ${type === "success" ? "toast-success" : "toast-error"}`;
+    toast.innerHTML = `
+        <div class="toast-message">${message}</div>
+        <button class="toast-close" onclick="dismissToast(this)">&times;</button>
+    `;
+    container.appendChild(toast);
+}
 

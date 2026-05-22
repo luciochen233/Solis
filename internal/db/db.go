@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"Solis/internal/slug"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -79,6 +81,115 @@ func migrate(conn *sql.DB) error {
 		}
 	}
 
+	// Ensure slug column exists in locations table (for existing databases)
+	{
+		rows, err := conn.Query("PRAGMA table_info(locations)")
+		if err != nil {
+			return fmt.Errorf("pragma table_info for locations: %w", err)
+		}
+		hasSlug := false
+		for rows.Next() {
+			var cid int
+			var name, ctype string
+			var notnull, pk int
+			var dfltValue interface{}
+			if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+				rows.Close()
+				return fmt.Errorf("scanning table_info for locations: %w", err)
+			}
+			if name == "slug" {
+				hasSlug = true
+			}
+		}
+		rows.Close()
+
+		if !hasSlug {
+			if _, err := conn.Exec("ALTER TABLE locations ADD COLUMN slug TEXT NOT NULL DEFAULT ''"); err != nil {
+				return fmt.Errorf("adding slug column to locations: %w", err)
+			}
+			if _, err := conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_locations_slug ON locations(slug)"); err != nil {
+				return fmt.Errorf("creating index idx_locations_slug: %w", err)
+			}
+		}
+	}
+
+	// Populate empty location slugs
+	{
+		rows, err := conn.Query("SELECT id, name FROM locations WHERE slug = '' OR slug IS NULL")
+		if err != nil {
+			return fmt.Errorf("querying locations with empty slugs: %w", err)
+		}
+		type locSlugUpdate struct {
+			id   int64
+			name string
+		}
+		var updates []locSlugUpdate
+		for rows.Next() {
+			var u locSlugUpdate
+			if err := rows.Scan(&u.id, &u.name); err == nil {
+				updates = append(updates, u)
+			}
+		}
+		rows.Close()
+
+		for _, u := range updates {
+			slugVal := slug.Slugify(u.name)
+			uniqueSlug := slugVal
+			index := 1
+			for {
+				var count int
+				err := conn.QueryRow("SELECT COUNT(*) FROM locations WHERE slug = ? AND id != ?", uniqueSlug, u.id).Scan(&count)
+				if err != nil {
+					return fmt.Errorf("checking slug uniqueness in migration: %w", err)
+				}
+				if count == 0 {
+					break
+				}
+				uniqueSlug = fmt.Sprintf("%s-%d", slugVal, index)
+				index++
+			}
+			_, err = conn.Exec("UPDATE locations SET slug = ? WHERE id = ?", uniqueSlug, u.id)
+			if err != nil {
+				return fmt.Errorf("updating location slug in migration: %w", err)
+			}
+		}
+	}
+
+	// Upgrade existing shortlinks with target `/admin?view=X` to `/{location_slug}/{item_slug}`
+	{
+		linkRows, err := conn.Query("SELECT id, url, item_id, slug FROM links WHERE url LIKE '/admin?view=%' AND item_id IS NOT NULL")
+		if err == nil {
+			type linkUpgrade struct {
+				id     int64
+				slug   string
+				itemID int64
+			}
+			var linkUpdates []linkUpgrade
+			for linkRows.Next() {
+				var l linkUpgrade
+				var rawURL string
+				if err := linkRows.Scan(&l.id, &rawURL, &l.itemID, &l.slug); err == nil {
+					linkUpdates = append(linkUpdates, l)
+				}
+			}
+			linkRows.Close()
+
+			for _, l := range linkUpdates {
+				var locSlug string
+				err = conn.QueryRow(`
+					SELECT COALESCE(l.slug, '') 
+					FROM items i 
+					LEFT JOIN locations l ON i.location_id = l.id 
+					WHERE i.id = ?`, l.itemID).Scan(&locSlug)
+				if err != nil || locSlug == "" {
+					locSlug = "default-room"
+				}
+				newURL := fmt.Sprintf("/%s/%s", locSlug, l.slug)
+				_, _ = conn.Exec("UPDATE links SET url = ? WHERE id = ?", newURL, l.id)
+			}
+		}
+	}
+
 	// Check if locations count is 0
 	var count int
 	err = conn.QueryRow("SELECT COUNT(*) FROM locations").Scan(&count)
@@ -87,8 +198,8 @@ func migrate(conn *sql.DB) error {
 	}
 
 	if count == 0 {
-		// Create the default room with explicit ID 1
-		_, err = conn.Exec("INSERT INTO locations (id, name, description) VALUES (1, 'Default Room', 'Default Room for unassigned items')")
+		// Create the default room with explicit ID 1 and slug 'default-room'
+		_, err = conn.Exec("INSERT INTO locations (id, name, slug, description) VALUES (1, 'Default Room', 'default-room', 'Default Room for unassigned items')")
 		if err != nil {
 			return fmt.Errorf("inserting default room: %w", err)
 		}

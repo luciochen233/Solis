@@ -28,6 +28,7 @@ type Item struct {
 	UpdatedAt      time.Time
 	Tags           []Tag // Loaded on demand
 	ShortSlug      string // Generated or loaded short URL slug
+	LocationSlug   sql.NullString // Slug of assigned location
 }
 
 func (d *DB) CreateItem(item *Item, tagIDs []int64) (*Item, error) {
@@ -87,7 +88,7 @@ func (d *DB) GetItem(id int64) (*Item, error) {
 			i.id, i.name, i.description, i.quantity, i.model_number, i.serial_number, i.status, 
 			i.location_id, l.name AS location_name, i.purchase_price, i.purchase_date, i.warranty_months, 
 			i.supplier, i.custom_fields, i.image_path, i.receipt_path, i.created_at, i.updated_at,
-			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state
+			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug
 		FROM items i
 		LEFT JOIN locations l ON i.location_id = l.id
 		LEFT JOIN links lk ON lk.item_id = i.id
@@ -182,7 +183,7 @@ func (d *DB) ListItems(showRemoved bool) ([]Item, error) {
 			i.id, i.name, i.description, i.quantity, i.model_number, i.serial_number, i.status, 
 			i.location_id, l.name AS location_name, i.purchase_price, i.purchase_date, i.warranty_months, 
 			i.supplier, i.custom_fields, i.image_path, i.receipt_path, i.created_at, i.updated_at,
-			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state
+			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug
 		FROM items i
 		LEFT JOIN locations l ON i.location_id = l.id
 		LEFT JOIN links lk ON lk.item_id = i.id
@@ -201,33 +202,12 @@ func (d *DB) ListItems(showRemoved bool) ([]Item, error) {
 	var items []Item
 	var itemIDs []int64
 	for rows.Next() {
-		var i Item
-		var created, updated string
-		var locID sql.NullInt64
-		var locName sql.NullString
-		var price sql.NullFloat64
-		var date sql.NullString
-		var warranty sql.NullInt64
-
-		err := rows.Scan(
-			&i.ID, &i.Name, &i.Description, &i.Quantity, &i.ModelNumber, &i.SerialNumber, &i.Status,
-			&locID, &locName, &price, &date, &warranty, &i.Supplier, &i.CustomFields, &i.ImagePath,
-			&i.ReceiptPath, &created, &updated, &i.ShortSlug, &i.LifecycleState,
-		)
+		item, err := scanItem(rows)
 		if err != nil {
 			return nil, err
 		}
-
-		i.LocationID = locID
-		i.LocationName = locName
-		i.PurchasePrice = price
-		i.PurchaseDate = date
-		i.WarrantyMonths = warranty
-		i.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", created)
-		i.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updated)
-
-		items = append(items, i)
-		itemIDs = append(itemIDs, i.ID)
+		items = append(items, *item)
+		itemIDs = append(itemIDs, item.ID)
 	}
 
 	if len(items) == 0 {
@@ -329,11 +309,12 @@ func scanItem(row interface {
 	var price sql.NullFloat64
 	var date sql.NullString
 	var warranty sql.NullInt64
+	var locSlug sql.NullString
 
 	err := row.Scan(
 		&i.ID, &i.Name, &i.Description, &i.Quantity, &i.ModelNumber, &i.SerialNumber, &i.Status,
 		&locID, &locName, &price, &date, &warranty, &i.Supplier, &i.CustomFields, &i.ImagePath,
-		&i.ReceiptPath, &created, &updated, &i.ShortSlug, &i.LifecycleState,
+		&i.ReceiptPath, &created, &updated, &i.ShortSlug, &i.LifecycleState, &locSlug,
 	)
 	if err != nil {
 		return nil, err
@@ -344,6 +325,7 @@ func scanItem(row interface {
 	i.PurchasePrice = price
 	i.PurchaseDate = date
 	i.WarrantyMonths = warranty
+	i.LocationSlug = locSlug
 	i.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", created)
 	i.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updated)
 
@@ -351,38 +333,7 @@ func scanItem(row interface {
 }
 
 func (d *DB) arrangeTags(roomName string, tags []Tag) []Tag {
-	if roomName == "" {
-		return tags
-	}
-
-	var roomTag *Tag
-	var otherTags []Tag
-
-	for i, t := range tags {
-		if t.Name == roomName {
-			roomTag = &tags[i]
-		} else {
-			otherTags = append(otherTags, t)
-		}
-	}
-
-	if roomTag == nil {
-		// Room tag was not in the loaded tags, let's fetch it from db
-		row := d.Conn.QueryRow("SELECT id, name, color, description FROM tags WHERE name = ?", roomName)
-		var t Tag
-		if err := row.Scan(&t.ID, &t.Name, &t.Color, &t.Description); err == nil {
-			roomTag = &t
-		} else {
-			// fallback: construct a temporary Tag
-			roomTag = &Tag{
-				Name:  roomName,
-				Color: "#f59e0b",
-			}
-		}
-	}
-
-	// Prepend roomTag
-	return append([]Tag{*roomTag}, otherTags...)
+	return tags
 }
 
 // GetLastUsedLocationID returns the location ID of the most recently created/added item.
@@ -398,3 +349,69 @@ func (d *DB) GetLastUsedLocationID() (int64, error) {
 	}
 	return locID, nil
 }
+
+func (d *DB) ListItemsByLocation(locID int64, showRemoved bool) ([]Item, error) {
+	query := `
+		SELECT 
+			i.id, i.name, i.description, i.quantity, i.model_number, i.serial_number, i.status, 
+			i.location_id, l.name AS location_name, i.purchase_price, i.purchase_date, i.warranty_months, 
+			i.supplier, i.custom_fields, i.image_path, i.receipt_path, i.created_at, i.updated_at,
+			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug
+		FROM items i
+		LEFT JOIN locations l ON i.location_id = l.id
+		LEFT JOIN links lk ON lk.item_id = i.id
+		WHERE i.location_id = ?
+	`
+	if !showRemoved {
+		query += " AND i.lifecycle_state != 'removed'"
+	}
+	query += " ORDER BY CASE i.lifecycle_state WHEN 'archived' THEN 1 WHEN 'removed' THEN 2 ELSE 0 END, i.id DESC"
+
+	rows, err := d.Conn.Query(query, locID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []Item
+	var itemIDs []int64
+	for rows.Next() {
+		item, err := scanItem(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *item)
+		itemIDs = append(itemIDs, item.ID)
+	}
+
+	if len(items) == 0 {
+		return items, nil
+	}
+
+	// Bulk load tags to avoid N+1 queries
+	tagMap, err := d.getBulkItemTags(itemIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Map tags to items
+	for idx, item := range items {
+		locNameStr := ""
+		if item.LocationName.Valid {
+			locNameStr = item.LocationName.String
+		}
+		if tags, exists := tagMap[item.ID]; exists {
+			items[idx].Tags = d.arrangeTags(locNameStr, tags)
+		} else {
+			items[idx].Tags = d.arrangeTags(locNameStr, []Tag{})
+		}
+	}
+
+	return items, nil
+}
+
+func (d *DB) MoveItemLocation(itemID, newLocID int64) error {
+	_, err := d.Conn.Exec("UPDATE items SET location_id = ?, updated_at = datetime('now') WHERE id = ?", newLocID, itemID)
+	return err
+}
+

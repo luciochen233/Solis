@@ -727,16 +727,22 @@
             <h1 style="margin-top: 0.15rem;">{{.Item.Name}}</h1>
         </div>
         <div style="display: flex; gap: 0.5rem;">
-            <a href="/admin/items/edit/{{.Item.ID}}" class="btn btn-primary">
-                Edit Asset
-            </a>
-            <a href="/admin" class="btn btn-secondary">
-                Back to List
-            </a>
+            {{if .IsAuthenticated}}
+                <a href="/admin/items/edit/{{.Item.ID}}" class="btn btn-primary">
+                    Edit Asset
+                </a>
+                <a href="/admin" class="btn btn-secondary">
+                    Back to List
+                </a>
+            {{else}}
+                <a href="{{with .CurrentLocation}}/{{.Slug}}{{else}}/default-room{{end}}" class="btn btn-secondary">
+                    Back to Directory
+                </a>
+            {{end}}
         </div>
     </div>
 
-    <div class="detail-grid">
+    <div class="detail-grid" {{if not .IsAuthenticated}}style="grid-template-columns: 1fr;"{{end}}>
         <!-- Detail Main Section -->
         <div class="detail-main">
             <!-- Basic info card -->
@@ -746,22 +752,27 @@
                         <div class="status-pill {{if eq .Item.Status "In Use"}}in-use{{else if eq .Item.Status "In Storage"}}in-storage{{else if eq .Item.Status "Borrowed"}}borrowed{{else if eq .Item.Status "Lost"}}lost{{else}}disposed{{end}}">
                             {{.Item.Status}}
                         </div>
+                        {{if .IsAuthenticated}}
                         <span style="margin-left: 0.5rem; font-size: 0.9rem; color: var(--color-text-muted); font-weight: 500;">
                             Quantity: <strong>{{.Item.Quantity}}</strong>
                         </span>
-                    </div>
-                    <div class="tag-list">
-                        {{range .Item.Tags}}
-                            <span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span>
                         {{end}}
                     </div>
+                    {{if .IsAuthenticated}}
+                    <div class="tag-list">
+                        {{range .Item.Tags}}
+                            <a href="/admin?tag={{.ID}}" style="text-decoration: none;"><span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span></a>
+                        {{end}}
+                    </div>
+                    {{end}}
                 </div>
 
                 <h3 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 0.75rem;">Description</h3>
-                <p style="color: var(--color-text-muted); margin-bottom: 1.75rem;">
+                <p style="color: var(--color-text-muted); {{if .IsAuthenticated}}margin-bottom: 1.75rem;{{else}}margin-bottom: 0.5rem;{{end}}">
                     {{if .Item.Description}}{{.Item.Description}}{{else}}<em>No description provided for this asset.</em>{{end}}
                 </p>
 
+                {{if .IsAuthenticated}}
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
                     <div>
                         <span style="font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Model Number</span>
@@ -772,8 +783,10 @@
                         <span style="font-weight: 500; font-size: 1.05rem; font-family: monospace;">{{if .Item.SerialNumber}}{{.Item.SerialNumber}}{{else}}--{{end}}</span>
                     </div>
                 </div>
+                {{end}}
             </div>
 
+            {{if .IsAuthenticated}}
             <!-- Image Visuals and Receipts -->
             <div class="item-visuals">
                 <div class="card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
@@ -835,8 +848,10 @@
                     <p style="color: var(--color-text-light); font-size: 0.95rem; font-style: italic;">No custom metadata fields defined for this asset.</p>
                 {{end}}
             </div>
+            {{end}}
         </div>
 
+        {{if .IsAuthenticated}}
         <!-- Detail Sidebar Section -->
         <div class="detail-sidebar">
             <!-- QR code card -->
@@ -889,9 +904,9 @@
 
                 <div>
                     <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Assigned Location</span>
-                    <span style="font-weight: 600; font-size: 1rem; color: var(--color-brand-primary);">
+                    <span style="font-weight: 600; font-size: 1rem;">
                         {{if .Item.LocationName.Valid}}
-                            {{.Item.LocationName.String}}
+                            <a href="/{{.Item.LocationSlug.String}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.Item.LocationName.String}}</a>
                         {{else}}
                             <span style="color: var(--color-text-light); font-style: italic; font-weight: 500;">Unassigned</span>
                         {{end}}
@@ -899,6 +914,7 @@
                 </div>
             </div>
         </div>
+        {{end}}
     </div>
 
 {{else}}
@@ -943,13 +959,20 @@
             {{end}}
         </select>
         
+        <select name="tag" class="form-control" style="width: 180px;" onchange="this.form.submit()">
+            <option value="">-- All Tags --</option>
+            {{range .Tags}}
+                <option value="{{.ID}}" {{if eq $.SelectedTag .ID}}selected{{end}}>{{.Name}}</option>
+            {{end}}
+        </select>
+        
         <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; white-space: nowrap; margin: 0 0.5rem;">
             <input type="checkbox" name="show_removed" value="1" {{if .ShowRemoved}}checked{{end}} onchange="this.form.submit()">
             Show removed
         </label>
         
         <button type="submit" class="btn btn-secondary">Filter</button>
-        {{if or .SearchQuery (or .SelectedStatus (or .SelectedLocation .ShowRemoved))}}
+        {{if or .SearchQuery (or .SelectedStatus (or .SelectedLocation (or .SelectedTag .ShowRemoved)))}}
             <a href="/admin" class="btn btn-secondary" style="padding: 0.625rem;">Reset</a>
         {{end}}
     </form>
@@ -995,8 +1018,8 @@
                                 </td>
                                 <td>
                                     {{if .LocationName.Valid}}
-                                        <span style="color: var(--color-brand-primary); font-weight: 500; font-size: 0.95rem;">
-                                            {{.LocationName.String}}
+                                        <span style="font-weight: 500; font-size: 0.95rem;">
+                                            <a href="/{{.LocationSlug.String}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.LocationName.String}}</a>
                                         </span>
                                     {{else}}
                                         <span style="color: var(--color-text-light); font-style: italic; font-size: 0.9rem;">Unassigned</span>
@@ -1017,7 +1040,7 @@
                                 <td>
                                     <div class="tag-list">
                                         {{range .Tags}}
-                                            <span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span>
+                                            <a href="/admin?tag={{.ID}}" style="text-decoration: none;"><span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span></a>
                                         {{end}}
                                     </div>
                                 </td>

@@ -37,8 +37,8 @@
                         {{if .Locations}}
                             {{range .Locations}}
                                 <tr class="{{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}">
-                                    <td style="font-weight: 600; color: var(--color-brand-primary);">
-                                        {{.Name}}
+                                    <td style="font-weight: 600;">
+                                        <a href="/{{.Slug}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.Name}}</a>
                                         {{if eq .LifecycleState "archived"}}
                                             <span class="status-pill archived" style="margin-left: 0.5rem; font-size: 0.7rem; padding: 0.1rem 0.4rem;">Archived</span>
                                         {{end}}

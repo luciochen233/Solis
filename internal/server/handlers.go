@@ -44,10 +44,16 @@ type PageData struct {
 	SearchQuery      string
 	SelectedStatus   string
 	SelectedLocation int64
+	SelectedTag      int64
 	CatalogJSON      string
 	SlugLength       int
 	ShowRemoved      bool
+	IsAuthenticated  bool
+	CurrentLocation  *db.Location
+	Breadcrumbs      []db.Location
+	ChildLocations   []db.Location
 }
+
 
 // ==========================================
 // 1. PUBLIC SHORT URL REDIRECT HANDLER
@@ -93,7 +99,7 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	data := PageData{
 		CSRFToken: csrfToken(w, r),
 	}
-	renderTemplate(w, "login.html", data)
+	s.render(w, r, "login.html", data)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +110,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			Error:     "Too many login attempts. Please wait.",
 		}
 		w.WriteHeader(http.StatusTooManyRequests)
-		renderTemplate(w, "login.html", data)
+		s.render(w, r, "login.html", data)
 		return
 	}
 
@@ -143,7 +149,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		CSRFToken: csrfToken(w, r),
 		Error:     "Invalid username or password.",
 	}
-	renderTemplate(w, "login.html", data)
+	s.render(w, r, "login.html", data)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -174,30 +180,39 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 	locations, _ := s.db.ListLocations(showRemoved)
 	tags, _ := s.db.ListTags(showRemoved)
 
-	// 1. DETAIL VIEW MODE
+	// 1. DETAIL VIEW MODE (Upgrade / Redirect to clean URL format)
 	if viewIDStr := r.URL.Query().Get("view"); viewIDStr != "" {
 		id, err := strconv.ParseInt(viewIDStr, 10, 64)
 		if err == nil {
 			item, err := s.db.GetItem(id)
 			if err == nil {
-				// Decode JSON custom fields
-				var cfMap map[string]string
-				_ = json.Unmarshal([]byte(item.CustomFields), &cfMap)
-
-				data := PageData{
-					CSRFToken:       csrf,
-					ActiveNav:       "items",
-					Item:            item,
-					ViewMode:        true,
-					CustomFieldsMap: cfMap,
-					Locations:       locations,
-					Tags:            tags,
-					ShowRemoved:     showRemoved,
-					Toast:           r.URL.Query().Get("toast"),
-					ToastType:       r.URL.Query().Get("toast_type"),
+				var locSlug string
+				if item.LocationID.Valid {
+					loc, err := s.db.GetLocation(item.LocationID.Int64)
+					if err == nil {
+						locSlug = loc.Slug
+					}
 				}
-				renderTemplate(w, "items.html", data)
-				return
+				if locSlug == "" {
+					locSlug = "default-room"
+				}
+
+				var itemSlug string
+				link, err := s.db.GetLinkByItemID(item.ID)
+				if err == nil {
+					itemSlug = link.Slug
+				} else {
+					itemSlug, _ = slug.GenerateItemSlug(item.ID, s.cfg.Slugs.Length, s.db.Conn)
+					if itemSlug != "" {
+						newURL := fmt.Sprintf("/%s/%s", locSlug, itemSlug)
+						_, _ = s.db.CreateLink(itemSlug, newURL, "admin", sql.NullInt64{Int64: item.ID, Valid: true})
+					}
+				}
+
+				if itemSlug != "" {
+					http.Redirect(w, r, fmt.Sprintf("/%s/%s?%s", locSlug, itemSlug, r.URL.RawQuery), http.StatusMovedPermanently)
+					return
+				}
 			}
 		}
 	}
@@ -206,6 +221,7 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 	searchQuery := r.URL.Query().Get("search")
 	statusQuery := r.URL.Query().Get("status")
 	locationQuery := r.URL.Query().Get("location")
+	tagQuery := r.URL.Query().Get("tag")
 
 	allItems, err := s.db.ListItems(showRemoved)
 	if err != nil {
@@ -220,6 +236,11 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 		locFilterID, _ = strconv.ParseInt(locationQuery, 10, 64)
 	}
 
+	var tagFilterID int64
+	if tagQuery != "" {
+		tagFilterID, _ = strconv.ParseInt(tagQuery, 10, 64)
+	}
+
 	for _, item := range allItems {
 		matchesSearch := searchQuery == "" || 
 			strings.Contains(strings.ToLower(item.Name), strings.ToLower(searchQuery)) ||
@@ -230,7 +251,18 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 		
 		matchesLocation := locationQuery == "" || (item.LocationID.Valid && item.LocationID.Int64 == locFilterID)
 
-		if matchesSearch && matchesStatus && matchesLocation {
+		matchesTag := true
+		if tagFilterID > 0 {
+			matchesTag = false
+			for _, t := range item.Tags {
+				if t.ID == tagFilterID {
+					matchesTag = true
+					break
+				}
+			}
+		}
+
+		if matchesSearch && matchesStatus && matchesLocation && matchesTag {
 			filteredItems = append(filteredItems, item)
 		}
 	}
@@ -244,12 +276,13 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 		SearchQuery:      searchQuery,
 		SelectedStatus:   statusQuery,
 		SelectedLocation: locFilterID,
+		SelectedTag:      tagFilterID,
 		ShowRemoved:      showRemoved,
 		Toast:            r.URL.Query().Get("toast"),
 		ToastType:        r.URL.Query().Get("toast_type"),
 	}
 
-	renderTemplate(w, "items.html", data)
+	s.render(w, r, "items.html", data)
 }
 
 func (s *Server) handleItemNew(w http.ResponseWriter, r *http.Request) {
@@ -269,7 +302,7 @@ func (s *Server) handleItemNew(w http.ResponseWriter, r *http.Request) {
 		FormMode:    true,
 		CatalogJSON: string(catalogJSON),
 	}
-	renderTemplate(w, "items.html", data)
+	s.render(w, r, "items.html", data)
 }
 
 func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
@@ -343,12 +376,8 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// 6. Generate collision-resistant short slug (using Glimmer SHA-256 slug engine)
-		slugVal, err := slug.GenerateItemSlug(createdItem.ID, s.cfg.Slugs.Length, s.db.Conn)
-		if err == nil && slugVal != "" {
-			targetURL := fmt.Sprintf("/admin?view=%d", createdItem.ID)
-			_, _ = s.db.CreateLink(slugVal, targetURL, "admin", sql.NullInt64{Int64: createdItem.ID, Valid: true})
-		}
+		// 6. Automatically generate and sync short link target as /{location_slug}/{item_slug}
+		s.syncItemShortlink(createdItem.ID, lastLocID)
 
 		// 7. Redirect straight to the Edit page so the user can modify any further details
 		http.Redirect(w, r, fmt.Sprintf("/admin/items/edit/%d?toast=Asset+created+successfully!+You+can+refine+its+details+below.&toast_type=success", createdItem.ID), http.StatusSeeOther)
@@ -430,13 +459,8 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// AUTOMATICALLY GENERATE A SHORT LINK (Glimmer SHA-256 collision-resistant port)
-	slugVal, err := slug.GenerateItemSlug(createdItem.ID, s.cfg.Slugs.Length, s.db.Conn)
-	if err == nil && slugVal != "" {
-		// Target is the internal details view of this asset
-		targetURL := fmt.Sprintf("/admin?view=%d", createdItem.ID)
-		_, _ = s.db.CreateLink(slugVal, targetURL, "admin", sql.NullInt64{Int64: createdItem.ID, Valid: true})
-	}
+	// AUTOMATICALLY GENERATE & SYNC A SHORT LINK
+	s.syncItemShortlink(createdItem.ID, locID.Int64)
 
 	http.Redirect(w, r, "/admin?toast=Asset+created+successfully&toast_type=success", http.StatusSeeOther)
 }
@@ -469,7 +493,7 @@ func (s *Server) handleItemEdit(w http.ResponseWriter, r *http.Request) {
 		CustomFieldsRaw: customFieldsRaw,
 		FormMode:        true,
 	}
-	renderTemplate(w, "items.html", data)
+	s.render(w, r, "items.html", data)
 }
 
 func (s *Server) handleItemSave(w http.ResponseWriter, r *http.Request) {
@@ -573,7 +597,27 @@ func (s *Server) handleItemSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/admin?view=%d&toast=Asset+updated+successfully&toast_type=success", item.ID), http.StatusSeeOther)
+	s.syncItemShortlink(item.ID, item.LocationID.Int64)
+
+	var locSlug string
+	if item.LocationID.Valid {
+		loc, err := s.db.GetLocation(item.LocationID.Int64)
+		if err == nil {
+			locSlug = loc.Slug
+		}
+	}
+	if locSlug == "" {
+		locSlug = "default-room"
+	}
+	var itemSlug string
+	link, err := s.db.GetLinkByItemID(item.ID)
+	if err == nil {
+		itemSlug = link.Slug
+	} else {
+		itemSlug = fmt.Sprintf("%d", item.ID)
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/%s/%s?toast=Asset+updated+successfully&toast_type=success", locSlug, itemSlug), http.StatusSeeOther)
 }
 
 func (s *Server) handleItemRemove(w http.ResponseWriter, r *http.Request) {
@@ -657,7 +701,7 @@ func (s *Server) handleAdminLocations(w http.ResponseWriter, r *http.Request) {
 		Toast:           r.URL.Query().Get("toast"),
 		ToastType:       r.URL.Query().Get("toast_type"),
 	}
-	renderTemplate(w, "locations.html", data)
+	s.render(w, r, "locations.html", data)
 }
 
 func (s *Server) handleLocationCreate(w http.ResponseWriter, r *http.Request) {
@@ -769,7 +813,7 @@ func (s *Server) handleAdminTags(w http.ResponseWriter, r *http.Request) {
 		Toast:       r.URL.Query().Get("toast"),
 		ToastType:   r.URL.Query().Get("toast_type"),
 	}
-	renderTemplate(w, "tags.html", data)
+	s.render(w, r, "tags.html", data)
 }
 
 func (s *Server) handleTagCreate(w http.ResponseWriter, r *http.Request) {
@@ -880,7 +924,7 @@ func (s *Server) handleAdminShortener(w http.ResponseWriter, r *http.Request) {
 		Toast:       r.URL.Query().Get("toast"),
 		ToastType:   r.URL.Query().Get("toast_type"),
 	}
-	renderTemplate(w, "shortener.html", data)
+	s.render(w, r, "shortener.html", data)
 }
 
 func (s *Server) handleLinkCreate(w http.ResponseWriter, r *http.Request) {
@@ -1040,7 +1084,7 @@ func (s *Server) handlePrintLabels(w http.ResponseWriter, r *http.Request) {
 		ActiveNav: "print",
 		Items:     items,
 	}
-	renderTemplate(w, "print_labels.html", data)
+	s.render(w, r, "print_labels.html", data)
 }
 
 // ==========================================
@@ -1151,29 +1195,283 @@ func formatCustomFields(jsonStr string) string {
 }
 
 func (s *Server) resolveRoomTag(locationID int64, tagIDs []int64) []int64 {
-	var roomName string
-	err := s.db.Conn.QueryRow("SELECT name FROM locations WHERE id = ?", locationID).Scan(&roomName)
-	if err != nil {
-		roomName = "Default Room"
+	return tagIDs
+}
+
+// render automatically injects IsAuthenticated based on the session token
+func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data PageData) {
+	cookie, err := r.Cookie("session")
+	data.IsAuthenticated = (err == nil && s.sessions.Valid(cookie.Value))
+	if err := renderTemplate(w, name, data); err != nil {
+		log.Printf("Template execution error for %s: %v", name, err)
+		http.Error(w, "Template execution error", http.StatusInternalServerError)
 	}
-	var roomTagID int64
-	err = s.db.Conn.QueryRow("SELECT id FROM tags WHERE name = ?", roomName).Scan(&roomTagID)
-	if err != nil {
-		// Try falling back to Default Room tag
-		_ = s.db.Conn.QueryRow("SELECT id FROM tags WHERE name = 'Default Room'").Scan(&roomTagID)
+}
+
+// syncItemShortlink automatically synchronizes the shortlink URL target as /{location_slug}/{item_slug}
+func (s *Server) syncItemShortlink(itemID int64, locID int64) {
+	var locSlug string
+	loc, err := s.db.GetLocation(locID)
+	if err == nil {
+		locSlug = loc.Slug
+	} else {
+		locSlug = "default-room"
 	}
 
-	// If we still don't have a valid tag ID, return the original tagIDs unchanged
-	if roomTagID == 0 {
-		return tagIDs
+	link, err := s.db.GetLinkByItemID(itemID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Generate clean, collision-resistant slug
+			slugVal, err := slug.GenerateItemSlug(itemID, s.cfg.Slugs.Length, s.db.Conn)
+			if err == nil && slugVal != "" {
+				newURL := fmt.Sprintf("/%s/%s", locSlug, slugVal)
+				_, _ = s.db.CreateLink(slugVal, newURL, "admin", sql.NullInt64{Int64: itemID, Valid: true})
+			}
+		}
+		return
 	}
 
-	// Build a deduplicated list with roomTagID first
-	dedupTagIDs := []int64{roomTagID}
-	for _, tid := range tagIDs {
-		if tid != roomTagID && tid != 0 {
-			dedupTagIDs = append(dedupTagIDs, tid)
+	newURL := fmt.Sprintf("/%s/%s", locSlug, link.Slug)
+	_ = s.db.UpdateLink(link.ID, link.Slug, newURL)
+}
+
+// isDescendantOf recursively checks if a location is a child/descendant of another to prevent cyclic nesting loops
+func (s *Server) isDescendantOf(parentID, childID int64) bool {
+	if parentID == childID {
+		return true
+	}
+	child, err := s.db.GetLocation(childID)
+	if err != nil || !child.ParentID.Valid {
+		return false
+	}
+	return s.isDescendantOf(parentID, child.ParentID.Int64)
+}
+
+func (s *Server) handlePublicFallback(w http.ResponseWriter, r *http.Request) {
+	path := r.PathValue("path")
+	path = strings.Trim(path, "/")
+	if path == "" {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
+
+	parts := strings.Split(path, "/")
+	if len(parts) == 1 {
+		r.SetPathValue("location_slug", parts[0])
+		s.handleFolderView(w, r)
+		return
+	} else if len(parts) == 2 {
+		r.SetPathValue("location_slug", parts[0])
+		r.SetPathValue("item_slug", parts[1])
+		s.handlePublicItemView(w, r)
+		return
+	}
+
+	http.NotFound(w, r)
+}
+
+func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
+	slugVal := r.PathValue("location_slug")
+	if slugVal == "" {
+		http.NotFound(w, r)
+		return
+	}
+	slugVal = strings.ToLower(slugVal)
+
+	loc, err := s.db.GetLocationBySlug(slugVal)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	cookie, err := r.Cookie("session")
+	isAuth := (err == nil && s.sessions.Valid(cookie.Value))
+
+	var childLocs []db.Location
+	var items []db.Item
+	var breadcrumbs []db.Location
+	var showRemoved bool
+	var allLocations []db.Location
+
+	if isAuth {
+		showRemoved = r.URL.Query().Get("show_removed") == "1"
+
+		childLocs, err = s.db.ListChildLocations(loc.ID, showRemoved)
+		if err != nil {
+			childLocs = []db.Location{}
+		}
+
+		items, err = s.db.ListItemsByLocation(loc.ID, showRemoved)
+		if err != nil {
+			items = []db.Item{}
+		}
+
+		// Build breadcrumbs recursively to the root (parentID = null)
+		current := loc
+		for {
+			breadcrumbs = append([]db.Location{*current}, breadcrumbs...)
+			if !current.ParentID.Valid {
+				break
+			}
+			parent, err := s.db.GetLocation(current.ParentID.Int64)
+			if err != nil {
+				break
+			}
+			current = parent
+		}
+
+		allLocations, _ = s.db.ListLocations(false)
+	} else {
+		// Guest user: return empty lists, hide folder structures and breadcrumbs
+		childLocs = []db.Location{}
+		items = []db.Item{}
+		breadcrumbs = []db.Location{}
+		allLocations = []db.Location{}
+		showRemoved = false
+	}
+
+	data := PageData{
+		CSRFToken:       csrfToken(w, r),
+		ActiveNav:       "locations",
+		CurrentLocation: loc,
+		ChildLocations:  childLocs,
+		Items:           items,
+		Breadcrumbs:     breadcrumbs,
+		Locations:       allLocations,
+		ShowRemoved:     showRemoved,
+	}
+
+	s.render(w, r, "location_folder.html", data)
+}
+
+func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
+	locationSlug := r.PathValue("location_slug")
+	itemSlug := r.PathValue("item_slug")
+
+	link, err := s.db.GetLinkBySlug(itemSlug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.NotFound(w, r)
+			return
+		}
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	if !link.ItemID.Valid {
+		http.NotFound(w, r)
+		return
+	}
+
+	item, err := s.db.GetItem(link.ItemID.Int64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	var correctLocationSlug string
+	if item.LocationID.Valid {
+		loc, err := s.db.GetLocation(item.LocationID.Int64)
+		if err == nil {
+			correctLocationSlug = loc.Slug
 		}
 	}
-	return dedupTagIDs
+	if correctLocationSlug == "" {
+		correctLocationSlug = "default-room"
+	}
+
+	if correctLocationSlug != locationSlug {
+		http.Redirect(w, r, fmt.Sprintf("/%s/%s", correctLocationSlug, itemSlug), http.StatusMovedPermanently)
+		return
+	}
+
+	// Resolve the parent location details if available for breadcrumb fallback
+	var currentLoc *db.Location
+	if item.LocationID.Valid {
+		currentLoc, _ = s.db.GetLocation(item.LocationID.Int64)
+	}
+
+	var cfMap map[string]string
+	_ = json.Unmarshal([]byte(item.CustomFields), &cfMap)
+
+	locations, _ := s.db.ListLocations(false)
+	tags, _ := s.db.ListTags(false)
+
+	data := PageData{
+		CSRFToken:       csrfToken(w, r),
+		ActiveNav:       "items",
+		Item:            item,
+		ViewMode:        true,
+		CustomFieldsMap: cfMap,
+		Locations:       locations,
+		Tags:            tags,
+		CurrentLocation: currentLoc,
+	}
+
+	s.render(w, r, "items.html", data)
 }
+
+func (s *Server) handleItemMove(w http.ResponseWriter, r *http.Request) {
+	itemIDStr := r.FormValue("item_id")
+	locIDStr := r.FormValue("location_id")
+
+	itemID, err1 := strconv.ParseInt(itemIDStr, 10, 64)
+	locID, err2 := strconv.ParseInt(locIDStr, 10, 64)
+	if err1 != nil || err2 != nil {
+		http.Error(w, "Invalid item_id or location_id", http.StatusBadRequest)
+		return
+	}
+
+	err := s.db.MoveItemLocation(itemID, locID)
+	if err != nil {
+		http.Error(w, "Failed to move item: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.syncItemShortlink(itemID, locID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"success","message":"Item moved successfully"}`))
+}
+
+func (s *Server) handleLocationMove(w http.ResponseWriter, r *http.Request) {
+	locIDStr := r.FormValue("location_id")
+	parentIDStr := r.FormValue("parent_id")
+
+	locID, err1 := strconv.ParseInt(locIDStr, 10, 64)
+	parentID, err2 := strconv.ParseInt(parentIDStr, 10, 64)
+	if err1 != nil {
+		http.Error(w, "Invalid location_id", http.StatusBadRequest)
+		return
+	}
+
+	if err2 != nil {
+		parentID = 0
+	}
+
+	if locID == parentID {
+		http.Error(w, "A location cannot be a parent of itself", http.StatusBadRequest)
+		return
+	}
+
+	if parentID > 0 {
+		if s.isDescendantOf(locID, parentID) {
+			http.Error(w, "Cycle detected: cannot move a location inside its own sub-folder", http.StatusBadRequest)
+			return
+		}
+	}
+
+	err := s.db.MoveLocationParent(locID, parentID)
+	if err != nil {
+		http.Error(w, "Failed to move location: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"success","message":"Location moved successfully"}`))
+}
+
