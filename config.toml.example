@@ -5,6 +5,9 @@ port = 8889
 base_url = "http://localhost:8889"
 read_timeout = "5s"
 write_timeout = "10s"
+# Language for the UI. Supported: "en" (English), "zh" (Chinese).
+# Add new languages by creating a JSON file in internal/i18n/locales/.
+language = "en"
 
 [admin]
 username = "admin"

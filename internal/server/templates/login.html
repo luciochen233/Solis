@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{.Lang}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solis | Sign In</title>
+    <title>{{T "app.title.login"}}</title>
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body class="login-container">
@@ -13,8 +13,8 @@
                 <div class="brand-logo">S</div>
                 <span class="brand-name">Solis</span>
             </div>
-            <h2 style="font-weight:700;font-size:1.5rem;letter-spacing:-0.01em;">Sign in to your assets</h2>
-            <p style="color:var(--color-text-muted);font-size:0.9rem;margin-top:0.25rem;">Enter your administrator credentials below</p>
+            <h2 style="font-weight:700;font-size:1.5rem;letter-spacing:-0.01em;">{{T "login.title"}}</h2>
+            <p style="color:var(--color-text-muted);font-size:0.9rem;margin-top:0.25rem;">{{T "login.subtitle"}}</p>
         </div>
 
         {{if .Error}}
@@ -25,19 +25,19 @@
 
         <form action="/admin/login" method="POST">
             <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-            
+
             <div class="form-group">
-                <label for="username" class="form-label">Username</label>
+                <label for="username" class="form-label">{{T "login.username"}}</label>
                 <input type="text" id="username" name="username" class="form-control" placeholder="e.g. admin" required autofocus>
             </div>
-            
+
             <div class="form-group" style="margin-bottom: 2rem;">
-                <label for="password" class="form-label">Password</label>
+                <label for="password" class="form-label">{{T "login.password"}}</label>
                 <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
             </div>
-            
+
             <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem 1.25rem; font-size: 1rem;">
-                Sign In
+                {{T "login.submit"}}
             </button>
         </form>
     </div>

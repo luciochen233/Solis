@@ -13,6 +13,7 @@ import (
 
 	"Solis/internal/config"
 	"Solis/internal/db"
+	"Solis/internal/i18n"
 )
 
 type Server struct {
@@ -21,6 +22,7 @@ type Server struct {
 	sessions *sessionStore
 	limiter  *rateLimiter
 	catalog  []config.CatalogCategory
+	i18n     *i18n.Translator
 }
 
 func New(cfg *config.Config, database *db.DB) *Server {
@@ -30,12 +32,20 @@ func New(cfg *config.Config, database *db.DB) *Server {
 		log.Printf("Warning: failed to load catalog.json: %v. Using empty catalog.", err)
 		cat = []config.CatalogCategory{}
 	}
+
+	translator, err := i18n.New(cfg.Server.Language)
+	if err != nil {
+		log.Printf("Warning: failed to load locale %q: %v. Falling back to English.", cfg.Server.Language, err)
+		translator, _ = i18n.New("en")
+	}
+
 	return &Server{
 		cfg:      cfg,
 		db:       database,
 		sessions: newSessionStore(ttl),
-		limiter:  newRateLimiter(2 * time.Second), // 2 seconds between login attempts
+		limiter:  newRateLimiter(2 * time.Second),
 		catalog:  cat,
+		i18n:     translator,
 	}
 }
 
@@ -82,7 +92,7 @@ func lowercasePath(next http.Handler) http.Handler {
 }
 
 func (s *Server) Start() error {
-	initTemplates()
+	initTemplates(s.i18n)
 
 	// Ensure upload directory exists
 	if err := os.MkdirAll(s.cfg.Upload.Dir, 0755); err != nil {

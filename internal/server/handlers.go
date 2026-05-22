@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"Solis/internal/config"
 	"Solis/internal/db"
 	"Solis/internal/slug"
 
@@ -22,6 +23,7 @@ import (
 
 // Global View Data context
 type PageData struct {
+	Lang             string
 	CSRFToken        string
 	ActiveNav        string
 	Toast            string
@@ -288,7 +290,7 @@ func (s *Server) handleItemNew(w http.ResponseWriter, r *http.Request) {
 	locations, _ := s.db.ListLocations(false)
 	tags, _ := s.db.ListTags(false)
 
-	catalogJSON, err := json.Marshal(s.catalog)
+	catalogJSON, err := json.Marshal(s.localizedCatalog())
 	if err != nil {
 		catalogJSON = []byte("[]")
 	}
@@ -302,6 +304,25 @@ func (s *Server) handleItemNew(w http.ResponseWriter, r *http.Request) {
 		CatalogJSON: string(catalogJSON),
 	}
 	s.render(w, r, "items.html", data)
+}
+
+func (s *Server) localizedCatalog() []config.CatalogCategory {
+	result := make([]config.CatalogCategory, len(s.catalog))
+	for i, cat := range s.catalog {
+		result[i] = config.CatalogCategory{
+			ID:    cat.ID,
+			Name:  s.i18n.T(cat.Name),
+			Color: cat.Color,
+			Items: make([]config.CatalogItem, len(cat.Items)),
+		}
+		for j, item := range cat.Items {
+			result[i].Items[j] = config.CatalogItem{
+				Name:   s.i18n.T(item.Name),
+				Brands: item.Brands,
+			}
+		}
+	}
+	return result
 }
 
 func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
@@ -331,26 +352,26 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 		} else if itemVal != "" && itemVal != "Other" {
 			name = itemVal
 		} else if category != "" && category != "Other" {
-			// Find category name from ID
 			catName := category
 			for _, cat := range s.catalog {
 				if cat.ID == category {
-					catName = cat.Name
+					catName = s.i18n.T(cat.Name)
 					break
 				}
 			}
-			name = catName + " Asset"
+			name = catName + " " + s.i18n.T("wizard.asset_suffix")
 		} else {
-			name = "New Asset"
+			name = s.i18n.T("wizard.new_asset")
 		}
 
 		// 3. Auto-tag with the selected catalog category
 		var tagIDs []int64
 		for _, cat := range s.catalog {
 			if cat.ID == category {
-				tag, err := s.db.GetTagByName(cat.Name)
+				tagName := s.i18n.T(cat.Name)
+				tag, err := s.db.GetTagByName(tagName)
 				if err != nil {
-					tag, err = s.db.CreateTag(cat.Name, cat.Color, "Auto-created from catalog category")
+					tag, err = s.db.CreateTag(tagName, cat.Color, s.i18n.T("wizard.auto_tag_desc"))
 				}
 				if err == nil {
 					tagIDs = append(tagIDs, tag.ID)
@@ -365,11 +386,11 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 		catLabel := category
 		for _, cat := range s.catalog {
 			if cat.ID == category {
-				catLabel = cat.Name
+				catLabel = s.i18n.T(cat.Name)
 				break
 			}
 		}
-		desc = fmt.Sprintf("Automatically cataloged via Wizard: %s > %s > %s", catLabel, itemVal, brand)
+		desc = s.i18n.TF("wizard.auto_desc", catLabel, itemVal, brand)
 
 		item := &db.Item{
 			Name:        name,
@@ -1213,6 +1234,7 @@ func (s *Server) resolveRoomTag(locationID int64, tagIDs []int64) []int64 {
 
 // render automatically injects IsAuthenticated based on the session token
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data PageData) {
+	data.Lang = s.i18n.Lang()
 	cookie, err := r.Cookie("session")
 	data.IsAuthenticated = (err == nil && s.sessions.Valid(cookie.Value))
 	if err := renderTemplate(w, name, data); err != nil {

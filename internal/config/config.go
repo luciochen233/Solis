@@ -21,6 +21,7 @@ type ServerConfig struct {
 	BaseURL      string `toml:"base_url"`
 	ReadTimeout  string `toml:"read_timeout"`
 	WriteTimeout string `toml:"write_timeout"`
+	Language     string `toml:"language"`
 }
 
 type AdminConfig struct {
@@ -65,6 +66,7 @@ func Load(path string) (*Config, error) {
 			BaseURL:      "http://localhost:8889",
 			ReadTimeout:  "5s",
 			WriteTimeout: "10s",
+			Language:     "en",
 		},
 		Admin: AdminConfig{
 			Username:     "admin",

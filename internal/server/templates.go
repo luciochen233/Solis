@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"Solis/internal/db"
+	"Solis/internal/i18n"
 )
 
 //go:embed all:templates
@@ -22,6 +23,7 @@ var templates *template.Template
 var templateMap map[string]*template.Template
 
 var templateFuncs = template.FuncMap{
+	"T": func(key string) string { return key },
 	"safeJS": func(s string) template.JS {
 		return template.JS(s)
 	},
@@ -94,7 +96,8 @@ var templateFuncs = template.FuncMap{
 	},
 }
 
-func initTemplates() {
+func initTemplates(translator *i18n.Translator) {
+	templateFuncs["T"] = translator.T
 	templateMap = make(map[string]*template.Template)
 
 	// Pages that use the base layout — each gets its own template set

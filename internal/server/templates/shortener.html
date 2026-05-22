@@ -1,10 +1,10 @@
-{{define "title"}}Solis | URL Shortener{{end}}
+{{define "title"}}{{T "app.title.shortlinks"}}{{end}}
 
 {{define "content"}}
 <div class="page-header">
     <div class="page-title">
-        <h1>URL Shortener</h1>
-        <p>Manage custom manual redirects (e.g. warranties, external manuals) or review auto-generated asset short URLs.</p>
+        <h1>{{T "shortener.title"}}</h1>
+        <p>{{T "shortener.subtitle"}}</p>
     </div>
 </div>
 <form action="/admin/shortener" method="GET" class="filter-bar" style="margin-bottom: 1.5rem; justify-content: flex-end;">
@@ -13,7 +13,7 @@
     {{end}}
     <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; white-space: nowrap;">
         <input type="checkbox" name="show_removed" value="1" {{if .ShowRemoved}}checked{{end}} onchange="this.form.submit()">
-        Show removed links
+        {{T "shortener.show_removed"}}
     </label>
 </form>
 
@@ -25,11 +25,11 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Slug</th>
-                            <th>Target URL</th>
-                            <th>Link Type</th>
-                            <th style="width: 80px; text-align: center;">Clicks</th>
-                            <th style="width: 120px; text-align: right;">Actions</th>
+                            <th>{{T "shortener.col.slug"}}</th>
+                            <th>{{T "shortener.col.target_url"}}</th>
+                            <th>{{T "shortener.col.link_type"}}</th>
+                            <th style="width: 80px; text-align: center;">{{T "shortener.col.clicks"}}</th>
+                            <th style="width: 120px; text-align: right;">{{T "common.actions"}}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -43,12 +43,12 @@
                                                     /s/{{.Slug}}
                                                 </a>
                                                 {{if eq .LifecycleState "archived"}}
-                                                    <span class="status-pill archived" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">Archived</span>
+                                                    <span class="status-pill archived" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">{{T "common.archived"}}</span>
                                                 {{end}}
                                             </div>
                                             <!-- QR code link quick view in printer sheet -->
                                             <a href="javascript:void(0)" onclick="openQRModal('{{.Slug}}', '{{.Slug}}')" style="font-size: 0.75rem; color: var(--color-text-light); text-decoration: underline; cursor: pointer;">
-                                                View QR Code
+                                                {{T "shortener.view_qr"}}
                                             </a>
                                         </div>
                                     </td>
@@ -60,11 +60,11 @@
                                     <td>
                                         {{if .ItemID.Valid}}
                                             <span style="font-size: 0.8rem; font-weight: 600; color:#065f46; background-color:#d1fae5; padding: 0.2rem 0.5rem; border-radius: 4px;">
-                                                Asset #{{.ItemID.Int64}} Link
+                                                {{T "shortener.asset_link"}} #{{.ItemID.Int64}}
                                             </span>
                                         {{else}}
                                             <span style="font-size: 0.8rem; font-weight: 600; color:#1e40af; background-color:#dbeafe; padding: 0.2rem 0.5rem; border-radius: 4px;">
-                                                Manual Redirect
+                                                {{T "shortener.manual_redirect"}}
                                             </span>
                                         {{end}}
                                     </td>
@@ -74,20 +74,20 @@
                                     <td class="actions-cell" style="text-align: right;">
                                         {{if .ItemID.Valid}}
                                             <!-- Asset link modifications are handled through items CRUD -->
-                                            <span style="color: var(--color-text-light); font-size: 0.85rem; font-style: italic;">Managed by Asset</span>
+                                            <span style="color: var(--color-text-light); font-size: 0.85rem; font-style: italic;">{{T "shortener.managed_by_asset"}}</span>
                                         {{else if eq .LifecycleState "removed"}}
                                             <!-- Soft removed manual redirects -->
                                             <div style="display: inline-flex; gap: 0.5rem; align-items: center;">
                                                 <form action="/admin/shortener/restore/{{.ID}}" method="POST" style="margin: 0;">
                                                     <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                                                     <button type="submit" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-color: #10b981; color: #10b981;">
-                                                        Restore
+                                                        {{T "common.restore"}}
                                                     </button>
                                                 </form>
-                                                <form action="/admin/shortener/permanent-delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this redirect? This action cannot be undone.')" style="margin: 0;">
+                                                <form action="/admin/shortener/permanent-delete/{{.ID}}" method="POST" onsubmit="return confirm('{{T "shortener.confirm_delete"}}')" style="margin: 0;">
                                                     <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                                                     <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                        Delete Forever
+                                                        {{T "common.delete_forever"}}
                                                     </button>
                                                 </form>
                                             </div>
@@ -96,26 +96,26 @@
                                             <div style="display: inline-flex; gap: 0.5rem; align-items: center;">
                                                 {{if ne .LifecycleState "archived"}}
                                                     <a href="/admin/shortener?edit={{.ID}}&show_removed={{if $.ShowRemoved}}1{{else}}0{{end}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                        Edit
+                                                        {{T "common.edit"}}
                                                     </a>
                                                 {{end}}
 
                                                 <div class="actions-dropdown">
                                                     <button class="btn btn-danger" onclick="toggleActionsDropdown(this, event)" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                                        Delete <span style="font-size: 0.65rem;">▼</span>
+                                                        {{T "common.delete"}} <span style="font-size: 0.65rem;">&#9660;</span>
                                                     </button>
                                                     <div class="actions-dropdown-menu">
                                                         <form action="/admin/shortener/remove/{{.ID}}" method="POST" style="margin: 0;">
                                                             <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                                                             <button type="submit" class="actions-dropdown-item text-danger">
-                                                                🗑 Remove
+                                                                &#128465; {{T "common.remove"}}
                                                             </button>
                                                         </form>
                                                         {{if ne .LifecycleState "archived"}}
                                                             <form action="/admin/shortener/archive/{{.ID}}" method="POST" style="margin: 0;">
                                                                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                                                                 <button type="submit" class="actions-dropdown-item text-warning">
-                                                                    📦 Archive
+                                                                    &#128230; {{T "common.archive"}}
                                                                 </button>
                                                             </form>
                                                         {{end}}
@@ -129,7 +129,7 @@
                         {{else}}
                             <tr>
                                 <td colspan="5" style="text-align: center; color: var(--color-text-light); padding: 3rem 1rem;">
-                                    No short links recorded. Create a custom redirect on the right!
+                                    {{T "shortener.empty"}}
                                 </td>
                             </tr>
                         {{end}}
@@ -143,61 +143,61 @@
     <div class="detail-sidebar">
         <div class="card">
             {{if .EditingLink}}
-                <h3 style="font-weight: 700; margin-bottom: 1.25rem;">Edit Redirect</h3>
+                <h3 style="font-weight: 700; margin-bottom: 1.25rem;">{{T "shortener.edit_redirect"}}</h3>
                 <form action="/admin/shortener/edit/{{.EditingLink.ID}}" method="POST">
                     <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                    
+
                     <div class="form-group">
-                        <label for="slug" class="form-label">Short Slug</label>
+                        <label for="slug" class="form-label">{{T "shortener.short_slug"}}</label>
                         <input type="text" id="slug" name="slug" class="form-control" value="{{.EditingLink.Slug}}" required>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 1.75rem;">
-                        <label for="url" class="form-label">Target Destination URL</label>
+                        <label for="url" class="form-label">{{T "shortener.target_url"}}</label>
                         <input type="url" id="url" name="url" class="form-control" value="{{.EditingLink.URL}}" placeholder="e.g. https://brand.com/manual.pdf" required>
                     </div>
 
                     <div style="display: flex; gap: 0.5rem;">
-                        <button type="submit" class="btn btn-primary" style="flex-grow: 1;">Save Changes</button>
-                        <a href="/admin/shortener" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary" style="flex-grow: 1;">{{T "common.save"}}</button>
+                        <a href="/admin/shortener" class="btn btn-secondary">{{T "common.cancel"}}</a>
                     </div>
                 </form>
             {{else}}
-                <h3 style="font-weight: 700; margin-bottom: 1.25rem;">Create Redirect</h3>
+                <h3 style="font-weight: 700; margin-bottom: 1.25rem;">{{T "shortener.create_redirect"}}</h3>
                 <form action="/admin/shortener/new" method="POST">
                     <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                    
+
                     <div class="form-group">
-                        <label for="slug" class="form-label">Custom Slug (Optional)</label>
+                        <label for="slug" class="form-label">{{T "shortener.custom_slug"}}</label>
                         <div style="display: flex; gap: 0.5rem;">
                             <input type="text" id="slug" name="slug" class="form-control" placeholder="e.g. warranty1" style="flex-grow:1;">
                             <button type="button" class="btn btn-secondary" style="padding: 0 0.75rem;" onclick="document.getElementById('slug').value = Math.random().toString(36).substring(2, 6)">
-                                Auto
+                                {{T "shortener.auto"}}
                             </button>
                         </div>
-                        <span style="font-size: 0.75rem; color: var(--color-text-light); margin-top: 0.25rem; display: block;">Leave blank to generate a random 4-character slug.</span>
+                        <span style="font-size: 0.75rem; color: var(--color-text-light); margin-top: 0.25rem; display: block;">{{T "shortener.slug_hint"}}</span>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 1.75rem;">
-                        <label for="url" class="form-label">Destination URL</label>
+                        <label for="url" class="form-label">{{T "shortener.destination_url"}}</label>
                         <input type="url" id="url" name="url" class="form-control" placeholder="e.g. https://support.brand.com/warranty" required>
                     </div>
 
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Add Redirect</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">{{T "shortener.add_redirect"}}</button>
                 </form>
             {{end}}
         </div>
 
         <!-- Slug Length Settings -->
         <div class="card" style="margin-top: 1rem;">
-            <h3 style="font-weight: 700; margin-bottom: 0.5rem; font-size: 1rem;">URL Slug Length</h3>
-            <p style="font-size: 0.8rem; color: var(--color-text-light); margin-bottom: 1rem;">Controls the character length of auto-generated short URL slugs. Shorter slugs make smaller QR codes. Changes apply to newly created assets only.</p>
+            <h3 style="font-weight: 700; margin-bottom: 0.5rem; font-size: 1rem;">{{T "shortener.slug_length_title"}}</h3>
+            <p style="font-size: 0.8rem; color: var(--color-text-light); margin-bottom: 1rem;">{{T "shortener.slug_length_desc"}}</p>
             <form action="/admin/shortener/slug-length" method="POST">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <input type="number" name="slug_length" class="form-control" value="{{.SlugLength}}" min="3" max="16" style="width: 80px; text-align: center; font-weight: 700; font-size: 1.1rem;">
-                    <span style="font-size: 0.85rem; color: var(--color-text-muted);">characters</span>
-                    <button type="submit" class="btn btn-primary" style="margin-left: auto; padding: 0.5rem 1rem; font-size: 0.85rem;">Save</button>
+                    <span style="font-size: 0.85rem; color: var(--color-text-muted);">{{T "shortener.characters"}}</span>
+                    <button type="submit" class="btn btn-primary" style="margin-left: auto; padding: 0.5rem 1rem; font-size: 0.85rem;">{{T "common.save"}}</button>
                 </div>
             </form>
         </div>

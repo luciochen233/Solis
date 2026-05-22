@@ -1,4 +1,4 @@
-{{define "title"}}Solis | Assets{{end}}
+{{define "title"}}{{T "app.title.assets"}}{{end}}
 
 {{define "content"}}
 
@@ -7,60 +7,60 @@
         <!-- ================== ASSET EDIT / CREATE FORM ================== -->
         <div class="page-header">
             <div class="page-title">
-                <h1>Edit Asset: {{.EditingItem.Name}}</h1>
-                <p>Define inventory items, upload documentation, and generate automated QR codes.</p>
+                <h1>{{T "items.edit.title_prefix"}}: {{.EditingItem.Name}}</h1>
+                <p>{{T "items.edit.subtitle"}}</p>
             </div>
             <div>
-                <a href="/admin" class="btn btn-secondary">Cancel</a>
+                <a href="/admin" class="btn btn-secondary">{{T "common.cancel"}}</a>
             </div>
         </div>
 
         <div class="card">
             <form action="/admin/items/edit/{{.EditingItem.ID}}" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                
-                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Basic Information</h3>
-                
+
+                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">{{T "items.edit.basic_info"}}</h3>
+
                 <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
                     <div class="form-group">
-                        <label for="name" class="form-label">Asset Name</label>
+                        <label for="name" class="form-label">{{T "items.edit.asset_name"}}</label>
                         <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Cordless Hammer Drill" value="{{.EditingItem.Name}}" required>
                     </div>
                     <div class="form-group">
-                        <label for="quantity" class="form-label">Quantity</label>
+                        <label for="quantity" class="form-label">{{T "items.edit.quantity"}}</label>
                         <input type="number" id="quantity" name="quantity" class="form-control" min="1" value="{{.EditingItem.Quantity}}" required>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="description" class="form-label">Description</label>
+                    <label for="description" class="form-label">{{T "items.edit.description"}}</label>
                     <textarea id="description" name="description" class="form-control" rows="3" placeholder="e.g. Brushless motor hammer drill, includes two 18V Li-ion batteries">{{.EditingItem.Description}}</textarea>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
                     <div class="form-group">
-                        <label for="model_number" class="form-label">Model Number</label>
+                        <label for="model_number" class="form-label">{{T "items.edit.model_number"}}</label>
                         <input type="text" id="model_number" name="model_number" class="form-control" placeholder="e.g. DCD796" value="{{.EditingItem.ModelNumber}}">
                     </div>
                     <div class="form-group">
-                        <label for="serial_number" class="form-label">Serial Number</label>
+                        <label for="serial_number" class="form-label">{{T "items.edit.serial_number"}}</label>
                         <input type="text" id="serial_number" name="serial_number" class="form-control" placeholder="e.g. 2018-W42-9988" value="{{.EditingItem.SerialNumber}}">
                     </div>
                     <div class="form-group">
-                        <label for="status" class="form-label">Status</label>
+                        <label for="status" class="form-label">{{T "items.edit.status"}}</label>
                         <select id="status" name="status" class="form-control">
-                            <option value="In Use" {{if eq .EditingItem.Status "In Use"}}selected{{end}}>In Use</option>
-                            <option value="In Storage" {{if eq .EditingItem.Status "In Storage"}}selected{{end}}>In Storage</option>
-                            <option value="Borrowed" {{if eq .EditingItem.Status "Borrowed"}}selected{{end}}>Borrowed</option>
-                            <option value="Lost" {{if eq .EditingItem.Status "Lost"}}selected{{end}}>Lost</option>
-                            <option value="Disposed" {{if eq .EditingItem.Status "Disposed"}}selected{{end}}>Disposed</option>
+                            <option value="In Use" {{if eq .EditingItem.Status "In Use"}}selected{{end}}>{{T "status.in_use"}}</option>
+                            <option value="In Storage" {{if eq .EditingItem.Status "In Storage"}}selected{{end}}>{{T "status.in_storage"}}</option>
+                            <option value="Borrowed" {{if eq .EditingItem.Status "Borrowed"}}selected{{end}}>{{T "status.borrowed"}}</option>
+                            <option value="Lost" {{if eq .EditingItem.Status "Lost"}}selected{{end}}>{{T "status.lost"}}</option>
+                            <option value="Disposed" {{if eq .EditingItem.Status "Disposed"}}selected{{end}}>{{T "status.disposed"}}</option>
                         </select>
                     </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
                     <div class="form-group">
-                        <label for="location_id" class="form-label">Location</label>
+                        <label for="location_id" class="form-label">{{T "items.edit.location"}}</label>
                         <select id="location_id" name="location_id" class="form-control" required>
                             {{range .Locations}}
                                 <option value="{{.ID}}" {{if $.EditingItem.LocationID.Valid}}{{if eq .ID $.EditingItem.LocationID.Int64}}selected{{end}}{{end}}>
@@ -70,7 +70,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Tags / Categories</label>
+                        <label class="form-label">{{T "items.edit.tags"}}</label>
                         <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; border: 1px solid var(--color-border); padding: 0.625rem; border-radius: var(--radius-sm); background-color: var(--color-bg-base); max-height: 110px; overflow-y: auto;">
                             {{range .Tags}}
                                 <label style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; font-weight: 500; cursor: pointer;">
@@ -82,56 +82,56 @@
                     </div>
                 </div>
 
-                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Purchase & Warranty</h3>
-                
+                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">{{T "items.edit.purchase_warranty"}}</h3>
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem;">
                     <div class="form-group">
-                        <label for="purchase_price" class="form-label">Purchase Price ($)</label>
+                        <label for="purchase_price" class="form-label">{{T "items.edit.purchase_price"}}</label>
                         <input type="number" id="purchase_price" name="purchase_price" class="form-control" step="0.01" min="0" placeholder="e.g. 149.99" value="{{if .EditingItem.PurchasePrice.Valid}}{{.EditingItem.PurchasePrice.Float64}}{{end}}">
                     </div>
                     <div class="form-group">
-                        <label for="purchase_date" class="form-label">Purchase Date</label>
+                        <label for="purchase_date" class="form-label">{{T "items.edit.purchase_date"}}</label>
                         <input type="date" id="purchase_date" name="purchase_date" class="form-control" value="{{if .EditingItem.PurchaseDate.Valid}}{{.EditingItem.PurchaseDate.String}}{{end}}">
                     </div>
                     <div class="form-group">
-                        <label for="warranty_months" class="form-label">Warranty (Months)</label>
+                        <label for="warranty_months" class="form-label">{{T "items.edit.warranty_months"}}</label>
                         <input type="number" id="warranty_months" name="warranty_months" class="form-control" min="0" placeholder="e.g. 24" value="{{if .EditingItem.WarrantyMonths.Valid}}{{.EditingItem.WarrantyMonths.Int64}}{{end}}">
                     </div>
                     <div class="form-group">
-                        <label for="supplier" class="form-label">Supplier / Store</label>
+                        <label for="supplier" class="form-label">{{T "items.edit.supplier"}}</label>
                         <input type="text" id="supplier" name="supplier" class="form-control" placeholder="e.g. Home Depot" value="{{.EditingItem.Supplier}}">
                     </div>
                 </div>
 
-                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Documentation & Visuals</h3>
-                
+                <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">{{T "items.edit.docs_visuals"}}</h3>
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                     <div class="form-group">
-                        <label for="image" class="form-label">Item Photo</label>
+                        <label for="image" class="form-label">{{T "items.edit.photo"}}</label>
                         <input type="file" id="image" name="image" class="form-control" accept="image/*">
                         {{if .EditingItem.ImagePath}}
-                            <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">Active Image: {{.EditingItem.ImagePath}}</span>
+                            <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">{{T "items.edit.active_image"}}: {{.EditingItem.ImagePath}}</span>
                         {{end}}
                     </div>
                     <div class="form-group">
-                        <label for="receipt" class="form-label">Receipt / Invoice Document</label>
+                        <label for="receipt" class="form-label">{{T "items.edit.receipt"}}</label>
                         <input type="file" id="receipt" name="receipt" class="form-control" accept="image/*,application/pdf">
                         {{if .EditingItem.ReceiptPath}}
-                            <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">Active Receipt: {{.EditingItem.ReceiptPath}}</span>
+                            <span style="font-size: 0.8rem; color: var(--color-brand-primary); margin-top: 0.25rem; display: block;">{{T "items.edit.active_receipt"}}: {{.EditingItem.ReceiptPath}}</span>
                         {{end}}
                     </div>
                 </div>
 
-                <h3 style="font-weight: 700; margin-bottom: 0.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">Custom Fields</h3>
-                <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 1rem;">Enter custom parameters one per line as <code>Key: Value</code> (e.g. <code>Battery: 18v Lithium</code>). These will be parsed into indexed SQLite JSON dynamically.</p>
-                
+                <h3 style="font-weight: 700; margin-bottom: 0.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">{{T "items.edit.custom_fields"}}</h3>
+                <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 1rem;">{{T "items.edit.custom_fields_help"}}</p>
+
                 <div class="form-group" style="margin-bottom: 2.5rem;">
-                    <label for="custom_fields" class="form-label">Custom Fields Editor</label>
+                    <label for="custom_fields" class="form-label">{{T "items.edit.custom_fields_editor"}}</label>
                     <textarea id="custom_fields" name="custom_fields" class="form-control" rows="4" placeholder="Battery: 18v&#10;MotorType: Brushless">{{.CustomFieldsRaw}}</textarea>
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem;">
-                    Save Changes
+                    {{T "common.save"}}
                 </button>
             </form>
         </div>
@@ -139,11 +139,11 @@
         <!-- ================== PREMIUM ADD ASSET WIZARD ================== -->
         <div class="page-header">
             <div class="page-title">
-                <h1>Add New Asset</h1>
-                <p>Catalog any device, appliance, or item in seconds using our intuitive selection wizard.</p>
+                <h1>{{T "wizard.title"}}</h1>
+                <p>{{T "wizard.subtitle"}}</p>
             </div>
             <div>
-                <a href="/admin" class="btn btn-secondary">Cancel</a>
+                <a href="/admin" class="btn btn-secondary">{{T "common.cancel"}}</a>
             </div>
         </div>
 
@@ -151,17 +151,17 @@
         <div class="wizard-progress-bar">
             <div class="wizard-step active" id="progress-step-1">
                 <span class="step-num">1</span>
-                <span class="step-label">Category</span>
+                <span class="step-label">{{T "wizard.step_category"}}</span>
             </div>
             <div class="wizard-line" id="progress-line-1"></div>
             <div class="wizard-step" id="progress-step-2">
                 <span class="step-num">2</span>
-                <span class="step-label">Item</span>
+                <span class="step-label">{{T "wizard.step_item"}}</span>
             </div>
             <div class="wizard-line" id="progress-line-2"></div>
             <div class="wizard-step" id="progress-step-3">
                 <span class="step-num">3</span>
-                <span class="step-label">Brand</span>
+                <span class="step-label">{{T "wizard.step_brand"}}</span>
             </div>
         </div>
 
@@ -182,13 +182,13 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 14px; height: 14px;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                     </svg>
-                    Back to previous step
+                    {{T "wizard.back"}}
                 </button>
             </div>
 
             <!-- Step 1: Category Screen -->
             <div class="wizard-screen active" id="screen-category">
-                <h3 class="wizard-screen-title">Which category of item do you want to add?</h3>
+                <h3 class="wizard-screen-title">{{T "wizard.category_question"}}</h3>
                 <div class="category-grid" id="category-grid-container">
                     <!-- Loaded dynamically via JS -->
                 </div>
@@ -196,7 +196,7 @@
 
             <!-- Step 2: Item Screen -->
             <div class="wizard-screen" id="screen-item">
-                <h3 class="wizard-screen-title" id="item-screen-heading">What kind of item is it?</h3>
+                <h3 class="wizard-screen-title" id="item-screen-heading"></h3>
                 <div class="pills-grid" id="item-grid-container">
                     <!-- Loaded dynamically via JS -->
                 </div>
@@ -204,7 +204,7 @@
 
             <!-- Step 3: Brand Screen -->
             <div class="wizard-screen" id="screen-brand">
-                <h3 class="wizard-screen-title" id="brand-screen-heading">What brand is the item?</h3>
+                <h3 class="wizard-screen-title" id="brand-screen-heading"></h3>
                 <div class="pills-grid" id="brand-grid-container">
                     <!-- Loaded dynamically via JS -->
                 </div>
@@ -439,6 +439,15 @@
                 // Parse catalog JSON data dynamically injected by handler
                 const catalog = {{safeJS .CatalogJSON}};
 
+                // i18n strings for the wizard
+                const __t = {
+                    itemQuestion: "{{T "wizard.item_question"}}",
+                    brandQuestion: "{{T "wizard.brand_question"}}",
+                    otherUnlisted: "{{T "wizard.other_unlisted"}}",
+                    otherItem: "{{T "wizard.other_item"}}",
+                    otherBrand: "{{T "wizard.other_brand"}}"
+                };
+
                 let currentStep = 1;
                 let selectedCategory = null;
                 let selectedItem = null;
@@ -457,33 +466,33 @@
                     }
 
                     categoryGrid.innerHTML = '';
-                    
+
                     catalog.forEach(cat => {
                         // Create beautiful HSL tints using the custom category color
                         const color = cat.color || '#d97706';
-                        
+
                         // Simple helper to convert HEX to RGBA / transparent tint
                         const r = parseInt(color.slice(1, 3), 16);
                         const g = parseInt(color.slice(3, 5), 16);
                         const b = parseInt(color.slice(5, 7), 16);
-                        
+
                         const card = document.createElement('div');
                         card.className = 'category-card';
                         card.style.setProperty('--cat-color', color);
                         card.style.setProperty('--cat-color-bg', `rgba(${r}, ${g}, ${b}, 0.04)`);
                         card.style.setProperty('--cat-color-badge-bg', `rgba(${r}, ${g}, ${b}, 0.1)`);
-                        
+
                         // Pick beautiful stylized icon or stylized letter badge
                         const initial = cat.name.charAt(0);
                         card.innerHTML = `
                             <div class="category-badge">${initial}</div>
                             <div class="category-name">${cat.name}</div>
                         `;
-                        
+
                         card.addEventListener('click', () => {
                             selectCategory(cat);
                         });
-                        
+
                         categoryGrid.appendChild(card);
                     });
 
@@ -497,7 +506,7 @@
                     otherCard.style.borderWidth = '2px';
                     otherCard.innerHTML = `
                         <div class="category-badge" style="font-weight: 500;">+</div>
-                        <div class="category-name">Other / Unlisted</div>
+                        <div class="category-name">${__t.otherUnlisted}</div>
                     `;
                     otherCard.addEventListener('click', () => {
                         selectCategory({ id: 'Other', name: 'Other', items: [] });
@@ -529,12 +538,12 @@
                 // 3. Render Items Screen
                 function renderItems(cat) {
                     const heading = getEl('item-screen-heading');
-                    if (heading) heading.textContent = `What kind of ${cat.name.toLowerCase()} is it?`;
+                    if (heading) heading.textContent = __t.itemQuestion.replace('%s', cat.name);
 
                     const itemGrid = getEl('item-grid-container');
                     if (!itemGrid) return;
                     itemGrid.innerHTML = '';
-                    
+
                     cat.items.forEach(item => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
@@ -545,11 +554,11 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                             </svg>
                         `;
-                        
+
                         btn.addEventListener('click', () => {
                             selectItem(cat, item);
                         });
-                        
+
                         itemGrid.appendChild(btn);
                     });
 
@@ -558,7 +567,7 @@
                     otherBtn.type = 'button';
                     otherBtn.className = 'pill-button other-pill';
                     otherBtn.innerHTML = `
-                        <span>Other Item</span>
+                        <span>${__t.otherItem}</span>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
@@ -591,12 +600,12 @@
                 // 5. Render Brands Screen
                 function renderBrands(item) {
                     const heading = getEl('brand-screen-heading');
-                    if (heading) heading.textContent = `What brand is the ${item.name.toLowerCase()}?`;
+                    if (heading) heading.textContent = __t.brandQuestion.replace('%s', item.name);
 
                     const brandGrid = getEl('brand-grid-container');
                     if (!brandGrid) return;
                     brandGrid.innerHTML = '';
-                    
+
                     item.brands.forEach(brand => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
@@ -607,11 +616,11 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         `;
-                        
+
                         btn.addEventListener('click', () => {
                             selectBrand(brand);
                         });
-                        
+
                         brandGrid.appendChild(btn);
                     });
 
@@ -620,7 +629,7 @@
                     otherBtn.type = 'button';
                     otherBtn.className = 'pill-button other-pill';
                     otherBtn.innerHTML = `
-                        <span>Other Brand</span>
+                        <span>${__t.otherBrand}</span>
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
@@ -636,7 +645,7 @@
                     selectedBrand = brand;
                     const inputBrand = getEl('input-brand');
                     if (inputBrand) inputBrand.value = brand;
-                    
+
                     // Submit the form immediately to complete creation
                     const wizardForm = getEl('wizard-form');
                     if (wizardForm) wizardForm.submit();
@@ -645,7 +654,7 @@
                 // 7. Navigation Step Controller
                 function goToStep(step) {
                     currentStep = step;
-                    
+
                     const screenCategory = getEl('screen-category');
                     const screenItem = getEl('screen-item');
                     const screenBrand = getEl('screen-brand');
@@ -664,7 +673,7 @@
                         setTimeout(() => goToStep(step), 20);
                         return;
                     }
-                    
+
                     // Hide all screens
                     screenCategory.classList.remove('active');
                     screenItem.classList.remove('active');
@@ -723,20 +732,20 @@
     <!-- ================== ASSET VIEW DETAILS MODE ================== -->
     <div class="page-header">
         <div class="page-title">
-            <span style="color: var(--color-text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Asset Details</span>
+            <span style="color: var(--color-text-light); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">{{T "items.detail.title"}}</span>
             <h1 style="margin-top: 0.15rem;">{{.Item.Name}}</h1>
         </div>
         <div style="display: flex; gap: 0.5rem;">
             {{if .IsAuthenticated}}
                 <a href="/admin/items/edit/{{.Item.ID}}" class="btn btn-primary">
-                    Edit Asset
+                    {{T "items.detail.edit"}}
                 </a>
                 <a href="/admin" class="btn btn-secondary">
-                    Back to List
+                    {{T "items.detail.back_list"}}
                 </a>
             {{else}}
                 <a href="{{with .CurrentLocation}}/{{.Slug}}{{else}}/default-room{{end}}" class="btn btn-secondary">
-                    Back to Directory
+                    {{T "items.detail.back_dir"}}
                 </a>
             {{end}}
         </div>
@@ -754,7 +763,7 @@
                         </div>
                         {{if .IsAuthenticated}}
                         <span style="margin-left: 0.5rem; font-size: 0.9rem; color: var(--color-text-muted); font-weight: 500;">
-                            Quantity: <strong>{{.Item.Quantity}}</strong>
+                            {{T "items.detail.quantity"}}: <strong>{{.Item.Quantity}}</strong>
                         </span>
                         {{end}}
                     </div>
@@ -767,19 +776,19 @@
                     {{end}}
                 </div>
 
-                <h3 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 0.75rem;">Description</h3>
+                <h3 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 0.75rem;">{{T "items.detail.description"}}</h3>
                 <p style="color: var(--color-text-muted); {{if .IsAuthenticated}}margin-bottom: 1.75rem;{{else}}margin-bottom: 0.5rem;{{end}}">
-                    {{if .Item.Description}}{{.Item.Description}}{{else}}<em>No description provided for this asset.</em>{{end}}
+                    {{if .Item.Description}}{{.Item.Description}}{{else}}<em>{{T "items.detail.no_description"}}</em>{{end}}
                 </p>
 
                 {{if .IsAuthenticated}}
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
                     <div>
-                        <span style="font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Model Number</span>
+                        <span style="font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">{{T "items.detail.model_number"}}</span>
                         <span style="font-weight: 500; font-size: 1.05rem;">{{if .Item.ModelNumber}}{{.Item.ModelNumber}}{{else}}--{{end}}</span>
                     </div>
                     <div>
-                        <span style="font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Serial Number</span>
+                        <span style="font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">{{T "items.detail.serial_number"}}</span>
                         <span style="font-weight: 500; font-size: 1.05rem; font-family: monospace;">{{if .Item.SerialNumber}}{{.Item.SerialNumber}}{{else}}--{{end}}</span>
                     </div>
                 </div>
@@ -790,7 +799,7 @@
             <!-- Image Visuals and Receipts -->
             <div class="item-visuals">
                 <div class="card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                    <h4 style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:0.25rem;">Asset Photo</h4>
+                    <h4 style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:0.25rem;">{{T "items.detail.photo"}}</h4>
                     <div class="visual-box">
                         {{if .Item.ImagePath}}
                             <img src="/uploads/{{.Item.ImagePath}}" alt="Asset Photo">
@@ -799,21 +808,20 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 48px; height: 48px;">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                                 </svg>
-                                <span>No Photo Attached</span>
+                                <span>{{T "items.detail.no_photo"}}</span>
                             </div>
                         {{end}}
                     </div>
                 </div>
 
                 <div class="card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                    <h4 style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:0.25rem;">Receipt / Invoice</h4>
+                    <h4 style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); border-bottom:1px solid var(--color-border); padding-bottom:0.25rem;">{{T "items.detail.receipt"}}</h4>
                     <div class="visual-box">
                         {{if .Item.ReceiptPath}}
-                            <!-- receipts could be PDFs or images. Since we force downloads for PDFs, let's see. If it's pdf we show pdf icon, otherwise image -->
                             <img src="/uploads/{{.Item.ReceiptPath}}" alt="Receipt">
                             <div style="position: absolute; bottom: 0.5rem; right: 0.5rem;">
                                 <a href="/uploads/{{.Item.ReceiptPath}}" target="_blank" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: white;">
-                                    Open Document
+                                    {{T "items.detail.open_doc"}}
                                 </a>
                             </div>
                         {{else}}
@@ -821,7 +829,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 48px; height: 48px;">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                                 </svg>
-                                <span>No Receipt Document</span>
+                                <span>{{T "items.detail.no_receipt"}}</span>
                             </div>
                         {{end}}
                     </div>
@@ -830,7 +838,7 @@
 
             <!-- Custom fields card -->
             <div class="card">
-                <h3 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 1.25rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">Custom Asset Metadata</h3>
+                <h3 style="font-weight: 700; font-size: 1.15rem; margin-bottom: 1.25rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">{{T "items.detail.custom_fields"}}</h3>
                 {{if .CustomFieldsMap}}
                     <div class="data-table-wrapper">
                         <table class="data-table">
@@ -845,7 +853,7 @@
                         </table>
                     </div>
                 {{else}}
-                    <p style="color: var(--color-text-light); font-size: 0.95rem; font-style: italic;">No custom metadata fields defined for this asset.</p>
+                    <p style="color: var(--color-text-light); font-size: 0.95rem; font-style: italic;">{{T "items.detail.no_custom"}}</p>
                 {{end}}
             </div>
             {{end}}
@@ -856,59 +864,59 @@
         <div class="detail-sidebar">
             <!-- QR code card -->
             <div class="card qr-card">
-                <h4 style="font-weight: 700; color: var(--color-text-muted); font-size: 1.05rem;">Asset Label QR Code</h4>
+                <h4 style="font-weight: 700; color: var(--color-text-muted); font-size: 1.05rem;">{{T "items.detail.qr"}}</h4>
                 {{if .Item.ShortSlug}}
                     <img class="qr-image" src="/admin/qr/{{.Item.ShortSlug}}" alt="QR Code">
                     <code style="font-family: monospace; background-color: var(--color-bg-base); padding: 0.35rem 0.75rem; border-radius: 4px; border: 1px solid var(--color-border); font-weight: 600; font-size: 0.95rem;">
                         s/{{.Item.ShortSlug}}
                     </code>
                     <a href="/admin/qr/{{.Item.ShortSlug}}" download="{{.Item.Name}}_QR.png" class="btn btn-secondary" style="width: 100%; font-size: 0.85rem;">
-                        Download Label Image
+                        {{T "items.detail.download_qr"}}
                     </a>
                 {{else}}
-                    <span style="color: var(--color-text-light); font-size: 0.85rem;">No short URL associated.</span>
+                    <span style="color: var(--color-text-light); font-size: 0.85rem;">{{T "items.detail.no_short_url"}}</span>
                 {{end}}
             </div>
 
             <!-- Purchase particulars card -->
             <div class="card" style="display: flex; flex-direction: column; gap: 1.25rem;">
-                <h4 style="font-weight: 700; color: var(--color-text-muted); font-size: 1.05rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">Purchase Context</h4>
-                
+                <h4 style="font-weight: 700; color: var(--color-text-muted); font-size: 1.05rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">{{T "items.detail.purchase_context"}}</h4>
+
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Purchase Price</span>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">{{T "items.detail.purchase_price"}}</span>
                     <span style="font-weight: 700; font-size: 1.35rem; color: var(--color-brand-primary);">
                         {{if .Item.PurchasePrice.Valid}}{{formatPrice .Item.PurchasePrice}}{{else}}--{{end}}
                     </span>
                 </div>
 
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Supplier / Dealer</span>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">{{T "items.detail.supplier"}}</span>
                     <span style="font-weight: 600; font-size: 1rem;">
                         {{if .Item.Supplier}}{{.Item.Supplier}}{{else}}--{{end}}
                     </span>
                 </div>
 
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Purchase Date</span>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">{{T "items.detail.purchase_date"}}</span>
                     <span style="font-weight: 600; font-size: 1rem;">
                         {{if .Item.PurchaseDate.Valid}}{{formatDate .Item.PurchaseDate}}{{else}}--{{end}}
                     </span>
                 </div>
 
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Warranty Period</span>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">{{T "items.detail.warranty_period"}}</span>
                     <span style="font-weight: 600; font-size: 1rem;">
-                        {{if .Item.WarrantyMonths.Valid}}{{.Item.WarrantyMonths.Int64}} Months{{else}}--{{end}}
+                        {{if .Item.WarrantyMonths.Valid}}{{.Item.WarrantyMonths.Int64}} {{T "items.detail.months"}}{{else}}--{{end}}
                     </span>
                 </div>
 
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">Assigned Location</span>
+                    <span style="font-size: 0.75rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">{{T "items.detail.assigned_location"}}</span>
                     <span style="font-weight: 600; font-size: 1rem;">
                         {{if .Item.LocationName.Valid}}
                             <a href="/{{.Item.LocationSlug.String}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.Item.LocationName.String}}</a>
                         {{else}}
-                            <span style="color: var(--color-text-light); font-style: italic; font-weight: 500;">Unassigned</span>
+                            <span style="color: var(--color-text-light); font-style: italic; font-weight: 500;">{{T "common.unassigned"}}</span>
                         {{end}}
                     </span>
                 </div>
@@ -921,15 +929,15 @@
     <!-- ================== DEFAULT: MAIN INVENTORY LIST ================== -->
     <div class="page-header">
         <div class="page-title">
-            <h1>Asset Inventory</h1>
-            <p>Track, manage, and label your home equipment and tools.</p>
+            <h1>{{T "items.title"}}</h1>
+            <p>{{T "items.subtitle"}}</p>
         </div>
         <div>
             <a href="/admin/items/new" class="btn btn-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 18px; height: 18px;">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
-                Add Asset
+                {{T "items.add"}}
             </a>
         </div>
     </div>
@@ -940,40 +948,40 @@
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.604 10.604z" />
             </svg>
-            <input type="text" name="search" class="form-control" placeholder="Search by asset name, model, serial number..." value="{{.SearchQuery}}">
+            <input type="text" name="search" class="form-control" placeholder="{{T "items.search_placeholder"}}" value="{{.SearchQuery}}">
         </div>
-        
+
         <select name="status" class="form-control" style="width: 180px;" onchange="this.form.submit()">
-            <option value="">-- All Statuses --</option>
-            <option value="In Use" {{if eq .SelectedStatus "In Use"}}selected{{end}}>In Use</option>
-            <option value="In Storage" {{if eq .SelectedStatus "In Storage"}}selected{{end}}>In Storage</option>
-            <option value="Borrowed" {{if eq .SelectedStatus "Borrowed"}}selected{{end}}>Borrowed</option>
-            <option value="Lost" {{if eq .SelectedStatus "Lost"}}selected{{end}}>Lost</option>
-            <option value="Disposed" {{if eq .SelectedStatus "Disposed"}}selected{{end}}>Disposed</option>
+            <option value="">{{T "items.all_statuses"}}</option>
+            <option value="In Use" {{if eq .SelectedStatus "In Use"}}selected{{end}}>{{T "status.in_use"}}</option>
+            <option value="In Storage" {{if eq .SelectedStatus "In Storage"}}selected{{end}}>{{T "status.in_storage"}}</option>
+            <option value="Borrowed" {{if eq .SelectedStatus "Borrowed"}}selected{{end}}>{{T "status.borrowed"}}</option>
+            <option value="Lost" {{if eq .SelectedStatus "Lost"}}selected{{end}}>{{T "status.lost"}}</option>
+            <option value="Disposed" {{if eq .SelectedStatus "Disposed"}}selected{{end}}>{{T "status.disposed"}}</option>
         </select>
-        
+
         <select name="location" class="form-control" style="width: 200px;" onchange="this.form.submit()">
-            <option value="">-- All Locations --</option>
+            <option value="">{{T "items.all_locations"}}</option>
             {{range .Locations}}
                 <option value="{{.ID}}" {{if eq $.SelectedLocation .ID}}selected{{end}}>{{.Name}}</option>
             {{end}}
         </select>
-        
+
         <select name="tag" class="form-control" style="width: 180px;" onchange="this.form.submit()">
-            <option value="">-- All Tags --</option>
+            <option value="">{{T "items.all_tags"}}</option>
             {{range .Tags}}
                 <option value="{{.ID}}" {{if eq $.SelectedTag .ID}}selected{{end}}>{{.Name}}</option>
             {{end}}
         </select>
-        
+
         <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; white-space: nowrap; margin: 0 0.5rem;">
             <input type="checkbox" name="show_removed" value="1" {{if .ShowRemoved}}checked{{end}} onchange="this.form.submit()">
-            Show removed
+            {{T "common.show_removed"}}
         </label>
-        
-        <button type="submit" class="btn btn-secondary">Filter</button>
+
+        <button type="submit" class="btn btn-secondary">{{T "common.filter"}}</button>
         {{if or .SearchQuery (or .SelectedStatus (or .SelectedLocation (or .SelectedTag .ShowRemoved)))}}
-            <a href="/admin" class="btn btn-secondary" style="padding: 0.625rem;">Reset</a>
+            <a href="/admin" class="btn btn-secondary" style="padding: 0.625rem;">{{T "common.reset"}}</a>
         {{end}}
     </form>
 
@@ -984,13 +992,13 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width: 80px;">QR Label</th>
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>Status</th>
-                        <th>Quantity</th>
-                        <th>Tags</th>
-                        <th style="width: 140px; text-align: right;">Actions</th>
+                        <th style="width: 80px;">{{T "items.col.qr"}}</th>
+                        <th>{{T "items.col.name"}}</th>
+                        <th>{{T "items.col.location"}}</th>
+                        <th>{{T "items.col.status"}}</th>
+                        <th>{{T "items.col.quantity"}}</th>
+                        <th>{{T "items.col.tags"}}</th>
+                        <th style="width: 140px; text-align: right;">{{T "common.actions"}}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1012,7 +1020,7 @@
                                             {{.Name}}
                                         </a>
                                         {{if .ModelNumber}}
-                                            <span style="color: var(--color-text-muted); font-size: 0.8rem; font-family: monospace;">Model: {{.ModelNumber}}</span>
+                                            <span style="color: var(--color-text-muted); font-size: 0.8rem; font-family: monospace;">{{T "items.model_prefix"}}: {{.ModelNumber}}</span>
                                         {{end}}
                                     </div>
                                 </td>
@@ -1022,12 +1030,12 @@
                                             <a href="/{{.LocationSlug.String}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.LocationName.String}}</a>
                                         </span>
                                     {{else}}
-                                        <span style="color: var(--color-text-light); font-style: italic; font-size: 0.9rem;">Unassigned</span>
+                                        <span style="color: var(--color-text-light); font-style: italic; font-size: 0.9rem;">{{T "common.unassigned"}}</span>
                                     {{end}}
                                 </td>
                                 <td>
                                     {{if eq .LifecycleState "archived"}}
-                                        <span class="status-pill archived">Archived</span>
+                                        <span class="status-pill archived">{{T "common.archived"}}</span>
                                     {{else}}
                                         <span class="status-pill {{if eq .Status "In Use"}}in-use{{else if eq .Status "In Storage"}}in-storage{{else if eq .Status "Borrowed"}}borrowed{{else if eq .Status "Lost"}}lost{{else}}disposed{{end}}">
                                             {{.Status}}
@@ -1051,43 +1059,43 @@
                                             <form action="/admin/items/restore/{{.ID}}" method="POST" style="margin: 0;">
                                                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                                                 <button type="submit" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-color: #10b981; color: #10b981;">
-                                                    Restore
+                                                    {{T "common.restore"}}
                                                 </button>
                                             </form>
-                                            <form action="/admin/items/permanent-delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this asset? This will clean up all associated media files on disk and cannot be undone.')" style="margin: 0;">
+                                            <form action="/admin/items/permanent-delete/{{.ID}}" method="POST" onsubmit="return confirm('{{T "items.confirm_delete"}}')" style="margin: 0;">
                                                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                                                 <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                    Delete Forever
+                                                    {{T "common.delete_forever"}}
                                                 </button>
                                             </form>
                                         {{else}}
                                             <!-- Active or Archived item actions -->
                                             <a href="/admin?view={{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                Details
+                                                {{T "common.details"}}
                                             </a>
-                                            
+
                                             {{if ne .LifecycleState "archived"}}
                                                 <a href="/admin/items/edit/{{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                    Edit
+                                                    {{T "common.edit"}}
                                                 </a>
                                             {{end}}
 
                                             <div class="actions-dropdown">
                                                 <button class="btn btn-danger" onclick="toggleActionsDropdown(this, event)" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.25rem;">
-                                                    Delete <span style="font-size: 0.65rem;">▼</span>
+                                                    {{T "common.delete"}} <span style="font-size: 0.65rem;">▼</span>
                                                 </button>
                                                 <div class="actions-dropdown-menu">
                                                     <form action="/admin/items/remove/{{.ID}}" method="POST" style="margin: 0;">
                                                         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                                                         <button type="submit" class="actions-dropdown-item text-danger">
-                                                            🗑 Remove Item
+                                                            🗑 {{T "items.remove_item"}}
                           </button>
                                                     </form>
                                                     {{if ne .LifecycleState "archived"}}
                                                         <form action="/admin/items/archive/{{.ID}}" method="POST" style="margin: 0;">
                                                             <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                                                             <button type="submit" class="actions-dropdown-item text-warning">
-                                                                📦 Archive Item
+                                                                📦 {{T "items.archive_item"}}
                                                             </button>
                                                         </form>
                                                     {{end}}
@@ -1106,8 +1114,8 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
                                     </svg>
                                     <div>
-                                        <h3 style="font-weight:600; color:var(--color-text-muted);">No assets found</h3>
-                                        <p style="font-size:0.9rem; margin-top:0.25rem;">Try refining your filters or click "Add Asset" to start tracking equipment.</p>
+                                        <h3 style="font-weight:600; color:var(--color-text-muted);">{{T "items.empty.title"}}</h3>
+                                        <p style="font-size:0.9rem; margin-top:0.25rem;">{{T "items.empty.subtitle"}}</p>
                                     </div>
                                 </div>
                             </td>
