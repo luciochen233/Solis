@@ -3,24 +3,26 @@
 
 -- 1. Locations Table (Supports hierarchical locations via parent_id)
 CREATE TABLE IF NOT EXISTS locations (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    parent_id   INTEGER REFERENCES locations(id) ON DELETE SET NULL,
-    image_path  TEXT NOT NULL DEFAULT '',
-    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    parent_id       INTEGER REFERENCES locations(id) ON DELETE SET NULL,
+    image_path      TEXT NOT NULL DEFAULT '',
+    lifecycle_state TEXT NOT NULL DEFAULT 'active',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_locations_parent ON locations(parent_id);
 
 -- 2. Tags Table (Sleek labels for grouping items)
 CREATE TABLE IF NOT EXISTS tags (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL UNIQUE,
-    color       TEXT NOT NULL DEFAULT '#e2e8f0', -- Hex code for pill color
-    description TEXT NOT NULL DEFAULT '',
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL UNIQUE,
+    color           TEXT NOT NULL DEFAULT '#e2e8f0', -- Hex code for pill color
+    description     TEXT NOT NULL DEFAULT '',
+    lifecycle_state TEXT NOT NULL DEFAULT 'active',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- 3. Items Table (Asset entries with purchase records and JSON custom fields)
@@ -40,6 +42,7 @@ CREATE TABLE IF NOT EXISTS items (
     custom_fields   TEXT NOT NULL DEFAULT '{}',     -- JSON text field containing arbitrary key-value custom metadata
     image_path      TEXT NOT NULL DEFAULT '',
     receipt_path    TEXT NOT NULL DEFAULT '',
+    lifecycle_state TEXT NOT NULL DEFAULT 'active',
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -55,13 +58,14 @@ CREATE TABLE IF NOT EXISTS item_tags (
 
 -- 5. Links Table (Ported and enhanced from Glimmer)
 CREATE TABLE IF NOT EXISTS links (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    slug        TEXT NOT NULL UNIQUE,
-    url         TEXT NOT NULL,                       -- Redirect target (internal, e.g., '/items/12', or external)
-    item_id     INTEGER REFERENCES items(id) ON DELETE CASCADE, -- Nullable; links specific assets to short URLs
-    created_by  TEXT NOT NULL DEFAULT 'admin',
-    clicks      INTEGER NOT NULL DEFAULT 0,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug            TEXT NOT NULL UNIQUE,
+    url             TEXT NOT NULL,                       -- Redirect target (internal, e.g., '/items/12', or external)
+    item_id         INTEGER REFERENCES items(id) ON DELETE CASCADE, -- Nullable; links specific assets to short URLs
+    created_by      TEXT NOT NULL DEFAULT 'admin',
+    clicks          INTEGER NOT NULL DEFAULT 0,
+    lifecycle_state TEXT NOT NULL DEFAULT 'active',
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_links_slug ON links(slug);

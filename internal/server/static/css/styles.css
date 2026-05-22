@@ -587,3 +587,106 @@ body {
         margin-top: 4px !important;
     }
 }
+
+/* ==========================================================================
+   Solis Lifecycle Styles (Archive, Soft-Remove & Premium Dropdowns)
+   ========================================================================== */
+
+/* Actions Dropdown Container */
+.actions-dropdown {
+    position: relative;
+    display: inline-block;
+    text-align: left;
+}
+
+/* Actions Menu Popup */
+.actions-dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 0.35rem;
+    background-color: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 999;
+    min-width: 160px;
+    display: none;
+    flex-direction: column;
+    padding: 0.35rem 0;
+    animation: dropdownFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Toggle Menu Display */
+.actions-dropdown.show .actions-dropdown-menu {
+    display: flex;
+}
+
+/* Menu Items (Forms & Buttons) */
+.actions-dropdown-item {
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    text-decoration: none;
+    font-family: var(--font-sans);
+}
+
+.actions-dropdown-item:hover {
+    background-color: var(--color-bg-base);
+    color: var(--color-brand-primary);
+}
+
+/* Muted / Red text variations for drop options */
+.actions-dropdown-item.text-danger {
+    color: #b91c1c;
+}
+.actions-dropdown-item.text-danger:hover {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.actions-dropdown-item.text-warning {
+    color: #b45309;
+}
+.actions-dropdown-item.text-warning:hover {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+/* Visual States for Soft Removed Elements */
+tr.lifecycle-removed {
+    opacity: 0.65;
+    background-color: var(--color-bg-base) !important;
+}
+
+tr.lifecycle-removed td:not(.actions-cell) {
+    text-decoration: line-through;
+    color: var(--color-text-light);
+}
+
+/* Visual States for Archived Elements */
+tr.lifecycle-archived {
+    background-color: #fcfbfb;
+}
+
+.status-pill.archived {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+}
+

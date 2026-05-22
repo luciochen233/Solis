@@ -96,3 +96,30 @@ function initRoomTagLock() {
     // Run immediately on page load to lock the default/current room tag
     updateRoomTag();
 }
+
+// 4. Dropdown Action Menu Manager
+function toggleActionsDropdown(btn, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    const container = btn.parentElement;
+    const isShown = container.classList.contains("show");
+    
+    // Close any other open dropdowns first
+    document.querySelectorAll(".actions-dropdown").forEach(d => {
+        d.classList.remove("show");
+    });
+    
+    if (!isShown) {
+        container.classList.add("show");
+    }
+}
+
+// Close dropdowns on outside click
+document.addEventListener("click", () => {
+    document.querySelectorAll(".actions-dropdown").forEach(d => {
+        d.classList.remove("show");
+    });
+});
+

@@ -7,14 +7,15 @@ import (
 )
 
 type Location struct {
-	ID          int64
-	Name        string
-	Description string
-	ParentID    sql.NullInt64
-	ParentName  sql.NullString // Resolved parent location name
-	ImagePath   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID             int64
+	Name           string
+	Description    string
+	ParentID       sql.NullInt64
+	ParentName     sql.NullString // Resolved parent location name
+	ImagePath      string
+	LifecycleState string // 'active', 'archived', 'removed'
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (d *DB) CreateLocation(name, description string, parentID sql.NullInt64, imagePath string) (*Location, error) {
@@ -63,7 +64,7 @@ func (d *DB) CreateLocation(name, description string, parentID sql.NullInt64, im
 
 func (d *DB) GetLocation(id int64) (*Location, error) {
 	row := d.Conn.QueryRow(`
-		SELECT l.id, l.name, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.created_at, l.updated_at 
+		SELECT l.id, l.name, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.created_at, l.updated_at 
 		FROM locations l 
 		LEFT JOIN locations p ON l.parent_id = p.id 
 		WHERE l.id = ?`,
@@ -174,13 +175,38 @@ func (d *DB) DeleteLocation(id int64) error {
 	return tx.Commit()
 }
 
-func (d *DB) ListLocations() ([]Location, error) {
-	rows, err := d.Conn.Query(`
-		SELECT l.id, l.name, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.created_at, l.updated_at 
+func (d *DB) SoftRemoveLocation(id int64) error {
+	if id == 1 {
+		return fmt.Errorf("cannot remove the Default Room")
+	}
+	_, err := d.Conn.Exec("UPDATE locations SET lifecycle_state = 'removed', updated_at = datetime('now') WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) ArchiveLocation(id int64) error {
+	if id == 1 {
+		return fmt.Errorf("cannot archive the Default Room")
+	}
+	_, err := d.Conn.Exec("UPDATE locations SET lifecycle_state = 'archived', updated_at = datetime('now') WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) RestoreLocation(id int64) error {
+	_, err := d.Conn.Exec("UPDATE locations SET lifecycle_state = 'active', updated_at = datetime('now') WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) ListLocations(showRemoved bool) ([]Location, error) {
+	query := `
+		SELECT l.id, l.name, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.created_at, l.updated_at 
 		FROM locations l 
-		LEFT JOIN locations p ON l.parent_id = p.id 
-		ORDER BY l.name ASC`,
-	)
+		LEFT JOIN locations p ON l.parent_id = p.id`
+	if !showRemoved {
+		query += " WHERE l.lifecycle_state != 'removed'"
+	}
+	query += " ORDER BY CASE l.lifecycle_state WHEN 'archived' THEN 1 WHEN 'removed' THEN 2 ELSE 0 END, l.name ASC"
+
+	rows, err := d.Conn.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +218,7 @@ func (d *DB) ListLocations() ([]Location, error) {
 		var parentID sql.NullInt64
 		var parentName sql.NullString
 		var created, updated string
-		if err := rows.Scan(&l.ID, &l.Name, &l.Description, &parentID, &parentName, &l.ImagePath, &created, &updated); err != nil {
+		if err := rows.Scan(&l.ID, &l.Name, &l.Description, &parentID, &parentName, &l.ImagePath, &l.LifecycleState, &created, &updated); err != nil {
 			return nil, err
 		}
 		l.ParentID = parentID
@@ -211,7 +237,7 @@ func scanLocation(row interface {
 	var parentID sql.NullInt64
 	var parentName sql.NullString
 	var created, updated string
-	if err := row.Scan(&l.ID, &l.Name, &l.Description, &parentID, &parentName, &l.ImagePath, &created, &updated); err != nil {
+	if err := row.Scan(&l.ID, &l.Name, &l.Description, &parentID, &parentName, &l.ImagePath, &l.LifecycleState, &created, &updated); err != nil {
 		return nil, err
 	}
 	l.ParentID = parentID

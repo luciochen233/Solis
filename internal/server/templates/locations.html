@@ -8,6 +8,17 @@
     </div>
 </div>
 
+<form action="/admin/locations" method="GET" class="filter-bar" style="margin-bottom: 1.5rem; justify-content: flex-end;">
+    {{if .EditingLocation}}
+        <input type="hidden" name="edit" value="{{.EditingLocation.ID}}">
+    {{end}}
+    <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; white-space: nowrap;">
+        <input type="checkbox" name="show_removed" value="1" {{if .ShowRemoved}}checked{{end}} onchange="this.form.submit()">
+        Show removed locations
+    </label>
+</form>
+
+
 <div class="detail-grid">
     <!-- Left Column: Locations List -->
     <div class="detail-main">
@@ -25,8 +36,13 @@
                     <tbody>
                         {{if .Locations}}
                             {{range .Locations}}
-                                <tr>
-                                    <td style="font-weight: 600; color: var(--color-brand-primary);">{{.Name}}</td>
+                                <tr class="{{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}">
+                                    <td style="font-weight: 600; color: var(--color-brand-primary);">
+                                        {{.Name}}
+                                        {{if eq .LifecycleState "archived"}}
+                                            <span class="status-pill archived" style="margin-left: 0.5rem; font-size: 0.7rem; padding: 0.1rem 0.4rem;">Archived</span>
+                                        {{end}}
+                                    </td>
                                     <td>
                                         {{if .ParentName.Valid}}
                                             <span style="color: var(--color-text-muted); font-size: 0.9rem;">
@@ -37,21 +53,53 @@
                                         {{end}}
                                     </td>
                                     <td style="color: var(--color-text-muted); font-size: 0.9rem;">{{.Description}}</td>
-                                    <td style="text-align: right;">
-                                        <div style="display: inline-flex; gap: 0.5rem;">
-                                            <!-- Edit Location triggers loading edit state in the right-side form -->
-                                            <a href="/admin/locations?edit={{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                Edit
-                                            </a>
-                                            {{if ne .ID 1}}
-                                            <form action="/admin/locations/delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to delete this location? Sub-locations and assets will be detached.')" style="margin: 0;">
-                                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                                                <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                    Delete
-                                                </button>
-                                            </form>
-                                            {{else}}
+                                    <td class="actions-cell" style="text-align: right;">
+                                        <div style="display: inline-flex; gap: 0.5rem; align-items: center;">
+                                            {{if eq .ID 1}}
                                                 <span style="color: var(--color-text-light); font-size: 0.8rem; font-style: italic; padding: 0.35rem 0.65rem;">Locked</span>
+                                            {{else if eq .LifecycleState "removed"}}
+                                                <!-- Soft removed actions -->
+                                                <form action="/admin/locations/restore/{{.ID}}" method="POST" style="margin: 0;">
+                                                    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                    <button type="submit" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-color: #10b981; color: #10b981;">
+                                                        Restore
+                                                    </button>
+                                                </form>
+                                                <form action="/admin/locations/permanent-delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this location? Associated sub-locations and assets will be detached.')" style="margin: 0;">
+                                                    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                    <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                                        Delete Forever
+                                                    </button>
+                                                </form>
+                                            {{else}}
+                                                <!-- Active / Archived actions -->
+                                                {{if ne .LifecycleState "archived"}}
+                                                    <a href="/admin/locations?edit={{.ID}}&show_removed={{if $.ShowRemoved}}1{{else}}0{{end}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                                        Edit
+                                                    </a>
+                                                {{end}}
+
+                                                <div class="actions-dropdown">
+                                                    <button class="btn btn-danger" onclick="toggleActionsDropdown(this, event)" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                        Delete <span style="font-size: 0.65rem;">▼</span>
+                                                    </button>
+                                                    <div class="actions-dropdown-menu">
+                                                        <form action="/admin/locations/remove/{{.ID}}" method="POST" style="margin: 0;">
+                                                            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                            <button type="submit" class="actions-dropdown-item text-danger">
+                                                                🗑 Remove
+                                                            </button>
+                                                        </form>
+                                                        {{if ne .LifecycleState "archived"}}
+                                                            <form action="/admin/locations/archive/{{.ID}}" method="POST" style="margin: 0;">
+                                                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                                <button type="submit" class="actions-dropdown-item text-warning">
+                                                                    📦 Archive
+                                                                </button>
+                                                            </form>
+                                                        {{end}}
+                                                    </div>
+                                                </div>
                                             {{end}}
                                         </div>
                                     </td>

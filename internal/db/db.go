@@ -48,6 +48,37 @@ func migrate(conn *sql.DB) error {
 		return fmt.Errorf("running schema migrations: %w", err)
 	}
 
+	// Ensure lifecycle_state column exists in items, locations, tags, links (for existing databases)
+	for _, tableName := range []string{"items", "locations", "tags", "links"} {
+		rows, err := conn.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+		if err != nil {
+			return fmt.Errorf("pragma table_info for %s: %w", tableName, err)
+		}
+		
+		hasLifecycleState := false
+		for rows.Next() {
+			var cid int
+			var name, ctype string
+			var notnull, pk int
+			var dfltValue interface{}
+			if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+				rows.Close()
+				return fmt.Errorf("scanning table_info for %s: %w", tableName, err)
+			}
+			if name == "lifecycle_state" {
+				hasLifecycleState = true
+			}
+		}
+		rows.Close()
+
+		if !hasLifecycleState {
+			alterQuery := fmt.Sprintf("ALTER TABLE %s ADD COLUMN lifecycle_state TEXT NOT NULL DEFAULT 'active'", tableName)
+			if _, err := conn.Exec(alterQuery); err != nil {
+				return fmt.Errorf("adding lifecycle_state column to %s: %w", tableName, err)
+			}
+		}
+	}
+
 	// Check if locations count is 0
 	var count int
 	err = conn.QueryRow("SELECT COUNT(*) FROM locations").Scan(&count)

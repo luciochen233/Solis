@@ -943,11 +943,17 @@
             {{end}}
         </select>
         
+        <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; white-space: nowrap; margin: 0 0.5rem;">
+            <input type="checkbox" name="show_removed" value="1" {{if .ShowRemoved}}checked{{end}} onchange="this.form.submit()">
+            Show removed
+        </label>
+        
         <button type="submit" class="btn btn-secondary">Filter</button>
-        {{if or .SearchQuery (or .SelectedStatus .SelectedLocation)}}
+        {{if or .SearchQuery (or .SelectedStatus (or .SelectedLocation .ShowRemoved))}}
             <a href="/admin" class="btn btn-secondary" style="padding: 0.625rem;">Reset</a>
         {{end}}
     </form>
+
 
     <!-- Assets Inventory Table -->
     <div class="card" style="padding: 0;">
@@ -967,11 +973,11 @@
                 <tbody>
                     {{if .Items}}
                         {{range .Items}}
-                            <tr>
+                            <tr class="{{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}">
                                 <td style="text-align: center; vertical-align: middle;">
                                     {{if .ShortSlug}}
-                                        <a href="/admin/qr/{{.ShortSlug}}" target="_blank">
-                                            <img src="/admin/qr/{{.ShortSlug}}" alt="QR Label" style="width: 42px; height: 42px; border: 1px solid var(--color-border); padding: 1px; border-radius: 4px; background: white;">
+                                        <a href="javascript:void(0)" onclick="openQRModal('{{.ShortSlug}}', '{{.Name}}')">
+                                            <img src="/admin/qr/{{.ShortSlug}}" alt="QR Label" style="width: 42px; height: 42px; border: 1px solid var(--color-border); padding: 1px; border-radius: 4px; background: white; cursor: pointer;">
                                         </a>
                                     {{else}}
                                         <span style="color: var(--color-text-light); font-size: 0.75rem;">--</span>
@@ -997,9 +1003,13 @@
                                     {{end}}
                                 </td>
                                 <td>
-                                    <span class="status-pill {{if eq .Status "In Use"}}in-use{{else if eq .Status "In Storage"}}in-storage{{else if eq .Status "Borrowed"}}borrowed{{else if eq .Status "Lost"}}lost{{else}}disposed{{end}}">
-                                        {{.Status}}
-                                    </span>
+                                    {{if eq .LifecycleState "archived"}}
+                                        <span class="status-pill archived">Archived</span>
+                                    {{else}}
+                                        <span class="status-pill {{if eq .Status "In Use"}}in-use{{else if eq .Status "In Storage"}}in-storage{{else if eq .Status "Borrowed"}}borrowed{{else if eq .Status "Lost"}}lost{{else}}disposed{{end}}">
+                                            {{.Status}}
+                                        </span>
+                                    {{end}}
                                 </td>
                                 <td style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); text-align: center;">
                                     {{.Quantity}}
@@ -1011,20 +1021,56 @@
                                         {{end}}
                                     </div>
                                 </td>
-                                <td style="text-align: right;">
+                                <td class="actions-cell" style="text-align: right;">
                                     <div style="display: inline-flex; gap: 0.5rem; align-items: center;">
-                                        <a href="/admin?view={{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                            Details
-                                        </a>
-                                        <a href="/admin/items/edit/{{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                            Edit
-                                        </a>
-                                        <form action="/admin/items/delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to delete this asset? This cannot be undone.')" style="margin: 0;">
-                                            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                                            <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                Delete
-                                            </button>
-                                        </form>
+                                        {{if eq .LifecycleState "removed"}}
+                                            <!-- Soft removed item actions -->
+                                            <form action="/admin/items/restore/{{.ID}}" method="POST" style="margin: 0;">
+                                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                <button type="submit" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-color: #10b981; color: #10b981;">
+                                                    Restore
+                                                </button>
+                                            </form>
+                                            <form action="/admin/items/permanent-delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this asset? This will clean up all associated media files on disk and cannot be undone.')" style="margin: 0;">
+                                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                                    Delete Forever
+                                                </button>
+                                            </form>
+                                        {{else}}
+                                            <!-- Active or Archived item actions -->
+                                            <a href="/admin?view={{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                                Details
+                                            </a>
+                                            
+                                            {{if ne .LifecycleState "archived"}}
+                                                <a href="/admin/items/edit/{{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                                    Edit
+                                                </a>
+                                            {{end}}
+
+                                            <div class="actions-dropdown">
+                                                <button class="btn btn-danger" onclick="toggleActionsDropdown(this, event)" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                    Delete <span style="font-size: 0.65rem;">▼</span>
+                                                </button>
+                                                <div class="actions-dropdown-menu">
+                                                    <form action="/admin/items/remove/{{.ID}}" method="POST" style="margin: 0;">
+                                                        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                        <button type="submit" class="actions-dropdown-item text-danger">
+                                                            🗑 Remove Item
+                          </button>
+                                                    </form>
+                                                    {{if ne .LifecycleState "archived"}}
+                                                        <form action="/admin/items/archive/{{.ID}}" method="POST" style="margin: 0;">
+                                                            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                            <button type="submit" class="actions-dropdown-item text-warning">
+                                                                📦 Archive Item
+                                                            </button>
+                                                        </form>
+                                                    {{end}}
+                                                </div>
+                                            </div>
+                                        {{end}}
                                     </div>
                                 </td>
                             </tr>

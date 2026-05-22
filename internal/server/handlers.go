@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +45,8 @@ type PageData struct {
 	SelectedStatus   string
 	SelectedLocation int64
 	CatalogJSON      string
+	SlugLength       int
+	ShowRemoved      bool
 }
 
 // ==========================================
@@ -167,8 +170,9 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 	csrf := csrfToken(w, r)
-	locations, _ := s.db.ListLocations()
-	tags, _ := s.db.ListTags()
+	showRemoved := r.URL.Query().Get("show_removed") == "1"
+	locations, _ := s.db.ListLocations(showRemoved)
+	tags, _ := s.db.ListTags(showRemoved)
 
 	// 1. DETAIL VIEW MODE
 	if viewIDStr := r.URL.Query().Get("view"); viewIDStr != "" {
@@ -188,6 +192,7 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 					CustomFieldsMap: cfMap,
 					Locations:       locations,
 					Tags:            tags,
+					ShowRemoved:     showRemoved,
 					Toast:           r.URL.Query().Get("toast"),
 					ToastType:       r.URL.Query().Get("toast_type"),
 				}
@@ -202,7 +207,7 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 	statusQuery := r.URL.Query().Get("status")
 	locationQuery := r.URL.Query().Get("location")
 
-	allItems, err := s.db.ListItems()
+	allItems, err := s.db.ListItems(showRemoved)
 	if err != nil {
 		http.Error(w, "Failed to load assets", http.StatusInternalServerError)
 		return
@@ -239,6 +244,7 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 		SearchQuery:      searchQuery,
 		SelectedStatus:   statusQuery,
 		SelectedLocation: locFilterID,
+		ShowRemoved:      showRemoved,
 		Toast:            r.URL.Query().Get("toast"),
 		ToastType:        r.URL.Query().Get("toast_type"),
 	}
@@ -247,8 +253,8 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleItemNew(w http.ResponseWriter, r *http.Request) {
-	locations, _ := s.db.ListLocations()
-	tags, _ := s.db.ListTags()
+	locations, _ := s.db.ListLocations(false)
+	tags, _ := s.db.ListTags(false)
 
 	catalogJSON, err := json.Marshal(s.catalog)
 	if err != nil {
@@ -448,8 +454,8 @@ func (s *Server) handleItemEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	locations, _ := s.db.ListLocations()
-	tags, _ := s.db.ListTags()
+	locations, _ := s.db.ListLocations(false)
+	tags, _ := s.db.ListTags(false)
 
 	// Translate custom JSON string back to raw lines for edit comfort
 	customFieldsRaw := formatCustomFields(item.CustomFields)
@@ -570,7 +576,40 @@ func (s *Server) handleItemSave(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/admin?view=%d&toast=Asset+updated+successfully&toast_type=success", item.ID), http.StatusSeeOther)
 }
 
-func (s *Server) handleItemDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleItemRemove(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.SoftRemoveItem(id)
+	http.Redirect(w, r, "/admin?toast=Asset+moved+to+soon-to-be-deleted+queue&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleItemArchive(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.ArchiveItem(id)
+	http.Redirect(w, r, "/admin?toast=Asset+archived+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleItemRestore(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.RestoreItem(id)
+	http.Redirect(w, r, "/admin?show_removed=1&toast=Asset+restored+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleItemPermanentDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
@@ -589,7 +628,7 @@ func (s *Server) handleItemDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = s.db.DeleteItem(id)
-	http.Redirect(w, r, "/admin?toast=Asset+deleted+successfully&toast_type=success", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin?show_removed=1&toast=Asset+deleted+forever+successfully&toast_type=success", http.StatusSeeOther)
 }
 
 // ==========================================
@@ -598,7 +637,8 @@ func (s *Server) handleItemDelete(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminLocations(w http.ResponseWriter, r *http.Request) {
 	csrf := csrfToken(w, r)
-	locations, _ := s.db.ListLocations()
+	showRemoved := r.URL.Query().Get("show_removed") == "1"
+	locations, _ := s.db.ListLocations(showRemoved)
 
 	var editLoc *db.Location
 	if editIDStr := r.URL.Query().Get("edit"); editIDStr != "" {
@@ -613,6 +653,7 @@ func (s *Server) handleAdminLocations(w http.ResponseWriter, r *http.Request) {
 		ActiveNav:       "locations",
 		Locations:       locations,
 		EditingLocation: editLoc,
+		ShowRemoved:     showRemoved,
 		Toast:           r.URL.Query().Get("toast"),
 		ToastType:       r.URL.Query().Get("toast_type"),
 	}
@@ -658,7 +699,40 @@ func (s *Server) handleLocationEdit(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/locations?toast=Location+updated+successfully&toast_type=success", http.StatusSeeOther)
 }
 
-func (s *Server) handleLocationDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleLocationRemove(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.SoftRemoveLocation(id)
+	http.Redirect(w, r, "/admin/locations?toast=Location+moved+to+soon-to-be-deleted+queue&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleLocationArchive(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.ArchiveLocation(id)
+	http.Redirect(w, r, "/admin/locations?toast=Location+archived+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleLocationRestore(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.RestoreLocation(id)
+	http.Redirect(w, r, "/admin/locations?show_removed=1&toast=Location+restored+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleLocationPermanentDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
@@ -666,7 +740,7 @@ func (s *Server) handleLocationDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = s.db.DeleteLocation(id)
-	http.Redirect(w, r, "/admin/locations?toast=Location+deleted+successfully&toast_type=success", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/locations?show_removed=1&toast=Location+deleted+forever+successfully&toast_type=success", http.StatusSeeOther)
 }
 
 // ==========================================
@@ -675,7 +749,8 @@ func (s *Server) handleLocationDelete(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminTags(w http.ResponseWriter, r *http.Request) {
 	csrf := csrfToken(w, r)
-	tags, _ := s.db.ListTags()
+	showRemoved := r.URL.Query().Get("show_removed") == "1"
+	tags, _ := s.db.ListTags(showRemoved)
 
 	var editTag *db.Tag
 	if editIDStr := r.URL.Query().Get("edit"); editIDStr != "" {
@@ -686,12 +761,13 @@ func (s *Server) handleAdminTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		CSRFToken:  csrf,
-		ActiveNav:  "tags",
-		Tags:       tags,
-		EditingTag: editTag,
-		Toast:      r.URL.Query().Get("toast"),
-		ToastType:  r.URL.Query().Get("toast_type"),
+		CSRFToken:   csrf,
+		ActiveNav:   "tags",
+		Tags:        tags,
+		EditingTag:  editTag,
+		ShowRemoved: showRemoved,
+		Toast:       r.URL.Query().Get("toast"),
+		ToastType:   r.URL.Query().Get("toast_type"),
 	}
 	renderTemplate(w, "tags.html", data)
 }
@@ -725,7 +801,40 @@ func (s *Server) handleTagEdit(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/tags?toast=Tag+updated+successfully&toast_type=success", http.StatusSeeOther)
 }
 
-func (s *Server) handleTagDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleTagRemove(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.SoftRemoveTag(id)
+	http.Redirect(w, r, "/admin/tags?toast=Tag+moved+to+soon-to-be-deleted+queue&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleTagArchive(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.ArchiveTag(id)
+	http.Redirect(w, r, "/admin/tags?toast=Tag+archived+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleTagRestore(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.RestoreTag(id)
+	http.Redirect(w, r, "/admin/tags?show_removed=1&toast=Tag+restored+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleTagPermanentDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
@@ -733,7 +842,7 @@ func (s *Server) handleTagDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = s.db.DeleteTag(id)
-	http.Redirect(w, r, "/admin/tags?toast=Tag+deleted+successfully&toast_type=success", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/tags?show_removed=1&toast=Tag+deleted+forever+successfully&toast_type=success", http.StatusSeeOther)
 }
 
 // ==========================================
@@ -742,20 +851,18 @@ func (s *Server) handleTagDelete(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminShortener(w http.ResponseWriter, r *http.Request) {
 	csrf := csrfToken(w, r)
-	links, _ := s.db.ListLinks()
+	showRemoved := r.URL.Query().Get("show_removed") == "1"
+	links, _ := s.db.ListLinks(showRemoved)
 
 	var editLink *db.Link
 	if editIDStr := r.URL.Query().Get("edit"); editIDStr != "" {
 		id, err := strconv.ParseInt(editIDStr, 10, 64)
 		if err == nil {
-			editLink, _ = s.db.GetLinkBySlug(editIDStr) // Note: ListLinks uses ID, so let's match by ID instead of slug in the select queries if possible. Wait!
-			// Actually let's query by id using db.Conn directly or adding a GetLinkByID function.
-			// Let's query by ID in database:
-			row := s.db.Conn.QueryRow("SELECT id, slug, url, item_id, created_by, clicks, created_at FROM links WHERE id = ?", id)
+			row := s.db.Conn.QueryRow("SELECT id, slug, url, item_id, created_by, clicks, lifecycle_state, created_at FROM links WHERE id = ?", id)
 			var l db.Link
 			var itemID sql.NullInt64
 			var ts string
-			if row.Scan(&l.ID, &l.Slug, &l.URL, &itemID, &l.CreatedBy, &l.Clicks, &ts) == nil {
+			if row.Scan(&l.ID, &l.Slug, &l.URL, &itemID, &l.CreatedBy, &l.Clicks, &l.LifecycleState, &ts) == nil {
 				l.ItemID = itemID
 				l.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", ts)
 				editLink = &l
@@ -768,6 +875,8 @@ func (s *Server) handleAdminShortener(w http.ResponseWriter, r *http.Request) {
 		ActiveNav:   "shortener",
 		Links:       links,
 		EditingLink: editLink,
+		SlugLength:  s.cfg.Slugs.Length,
+		ShowRemoved: showRemoved,
 		Toast:       r.URL.Query().Get("toast"),
 		ToastType:   r.URL.Query().Get("toast_type"),
 	}
@@ -845,7 +954,40 @@ func (s *Server) handleLinkSave(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/shortener?toast=Shortlink+updated+successfully&toast_type=success", http.StatusSeeOther)
 }
 
-func (s *Server) handleLinkDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleLinkRemove(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.SoftRemoveLink(id)
+	http.Redirect(w, r, "/admin/shortener?toast=Shortlink+moved+to+soon-to-be-deleted+queue&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleLinkArchive(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.ArchiveLink(id)
+	http.Redirect(w, r, "/admin/shortener?toast=Shortlink+archived+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleLinkRestore(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.RestoreLink(id)
+	http.Redirect(w, r, "/admin/shortener?show_removed=1&toast=Shortlink+restored+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleLinkPermanentDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
@@ -853,7 +995,32 @@ func (s *Server) handleLinkDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = s.db.DeleteLink(id)
-	http.Redirect(w, r, "/admin/shortener?toast=Shortlink+deleted+successfully&toast_type=success", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/shortener?show_removed=1&toast=Shortlink+deleted+forever+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleSlugLengthUpdate(w http.ResponseWriter, r *http.Request) {
+	lengthStr := strings.TrimSpace(r.FormValue("slug_length"))
+	length, err := strconv.Atoi(lengthStr)
+	if err != nil || length < 3 || length > 16 {
+		http.Redirect(w, r, "/admin/shortener?toast=Slug+length+must+be+between+3+and+16&toast_type=error", http.StatusSeeOther)
+		return
+	}
+
+	// Update in-memory config
+	s.cfg.Slugs.Length = length
+
+	// Persist to config.toml
+	configPath := "config.toml"
+	data, err := os.ReadFile(configPath)
+	if err == nil {
+		content := string(data)
+		// Replace the length line in the [slugs] section
+		re := regexp.MustCompile(`(?m)^(\s*length\s*=\s*)\d+`)
+		content = re.ReplaceAllString(content, "${1}"+strconv.Itoa(length))
+		_ = os.WriteFile(configPath, []byte(content), 0644)
+	}
+
+	http.Redirect(w, r, "/admin/shortener?toast=Slug+length+updated+to+"+strconv.Itoa(length)+"+characters&toast_type=success", http.StatusSeeOther)
 }
 
 // ==========================================
@@ -862,7 +1029,7 @@ func (s *Server) handleLinkDelete(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePrintLabels(w http.ResponseWriter, r *http.Request) {
 	csrf := csrfToken(w, r)
-	items, err := s.db.ListItems()
+	items, err := s.db.ListItems(false)
 	if err != nil {
 		http.Error(w, "Failed to load labels", http.StatusInternalServerError)
 		return

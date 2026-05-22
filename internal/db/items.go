@@ -23,6 +23,7 @@ type Item struct {
 	CustomFields   string // JSON text
 	ImagePath      string
 	ReceiptPath    string
+	LifecycleState string // 'active', 'archived', 'removed'
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	Tags           []Tag // Loaded on demand
@@ -86,7 +87,7 @@ func (d *DB) GetItem(id int64) (*Item, error) {
 			i.id, i.name, i.description, i.quantity, i.model_number, i.serial_number, i.status, 
 			i.location_id, l.name AS location_name, i.purchase_price, i.purchase_date, i.warranty_months, 
 			i.supplier, i.custom_fields, i.image_path, i.receipt_path, i.created_at, i.updated_at,
-			COALESCE(lk.slug, '') AS short_slug
+			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state
 		FROM items i
 		LEFT JOIN locations l ON i.location_id = l.id
 		LEFT JOIN links lk ON lk.item_id = i.id
@@ -160,18 +161,38 @@ func (d *DB) DeleteItem(id int64) error {
 	return err
 }
 
-func (d *DB) ListItems() ([]Item, error) {
-	rows, err := d.Conn.Query(`
+func (d *DB) SoftRemoveItem(id int64) error {
+	_, err := d.Conn.Exec("UPDATE items SET lifecycle_state = 'removed', updated_at = datetime('now') WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) ArchiveItem(id int64) error {
+	_, err := d.Conn.Exec("UPDATE items SET lifecycle_state = 'archived', updated_at = datetime('now') WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) RestoreItem(id int64) error {
+	_, err := d.Conn.Exec("UPDATE items SET lifecycle_state = 'active', updated_at = datetime('now') WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) ListItems(showRemoved bool) ([]Item, error) {
+	query := `
 		SELECT 
 			i.id, i.name, i.description, i.quantity, i.model_number, i.serial_number, i.status, 
 			i.location_id, l.name AS location_name, i.purchase_price, i.purchase_date, i.warranty_months, 
 			i.supplier, i.custom_fields, i.image_path, i.receipt_path, i.created_at, i.updated_at,
-			COALESCE(lk.slug, '') AS short_slug
+			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state
 		FROM items i
 		LEFT JOIN locations l ON i.location_id = l.id
 		LEFT JOIN links lk ON lk.item_id = i.id
-		ORDER BY i.id DESC`,
-	)
+	`
+	if !showRemoved {
+		query += " WHERE i.lifecycle_state != 'removed'"
+	}
+	query += " ORDER BY CASE i.lifecycle_state WHEN 'archived' THEN 1 WHEN 'removed' THEN 2 ELSE 0 END, i.id DESC"
+
+	rows, err := d.Conn.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +212,7 @@ func (d *DB) ListItems() ([]Item, error) {
 		err := rows.Scan(
 			&i.ID, &i.Name, &i.Description, &i.Quantity, &i.ModelNumber, &i.SerialNumber, &i.Status,
 			&locID, &locName, &price, &date, &warranty, &i.Supplier, &i.CustomFields, &i.ImagePath,
-			&i.ReceiptPath, &created, &updated, &i.ShortSlug,
+			&i.ReceiptPath, &created, &updated, &i.ShortSlug, &i.LifecycleState,
 		)
 		if err != nil {
 			return nil, err
@@ -312,7 +333,7 @@ func scanItem(row interface {
 	err := row.Scan(
 		&i.ID, &i.Name, &i.Description, &i.Quantity, &i.ModelNumber, &i.SerialNumber, &i.Status,
 		&locID, &locName, &price, &date, &warranty, &i.Supplier, &i.CustomFields, &i.ImagePath,
-		&i.ReceiptPath, &created, &updated, &i.ShortSlug,
+		&i.ReceiptPath, &created, &updated, &i.ShortSlug, &i.LifecycleState,
 	)
 	if err != nil {
 		return nil, err

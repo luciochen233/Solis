@@ -112,25 +112,42 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /admin/items/new", s.requireAuth(s.requireCSRF(s.handleItemCreate)))
 	mux.HandleFunc("GET /admin/items/edit/{id}", s.requireAuth(s.handleItemEdit))
 	mux.HandleFunc("POST /admin/items/edit/{id}", s.requireAuth(s.requireCSRF(s.handleItemSave)))
-	mux.HandleFunc("POST /admin/items/delete/{id}", s.requireAuth(s.requireCSRF(s.handleItemDelete)))
+	mux.HandleFunc("POST /admin/items/delete/{id}", s.requireAuth(s.requireCSRF(s.handleItemRemove)))
+	mux.HandleFunc("POST /admin/items/remove/{id}", s.requireAuth(s.requireCSRF(s.handleItemRemove)))
+	mux.HandleFunc("POST /admin/items/archive/{id}", s.requireAuth(s.requireCSRF(s.handleItemArchive)))
+	mux.HandleFunc("POST /admin/items/restore/{id}", s.requireAuth(s.requireCSRF(s.handleItemRestore)))
+	mux.HandleFunc("POST /admin/items/permanent-delete/{id}", s.requireAuth(s.requireCSRF(s.handleItemPermanentDelete)))
 
 	// 7. Admin locations management
 	mux.HandleFunc("GET /admin/locations", s.requireAuth(s.handleAdminLocations))
 	mux.HandleFunc("POST /admin/locations/new", s.requireAuth(s.requireCSRF(s.handleLocationCreate)))
 	mux.HandleFunc("POST /admin/locations/edit/{id}", s.requireAuth(s.requireCSRF(s.handleLocationEdit)))
-	mux.HandleFunc("POST /admin/locations/delete/{id}", s.requireAuth(s.requireCSRF(s.handleLocationDelete)))
+	mux.HandleFunc("POST /admin/locations/delete/{id}", s.requireAuth(s.requireCSRF(s.handleLocationRemove)))
+	mux.HandleFunc("POST /admin/locations/remove/{id}", s.requireAuth(s.requireCSRF(s.handleLocationRemove)))
+	mux.HandleFunc("POST /admin/locations/archive/{id}", s.requireAuth(s.requireCSRF(s.handleLocationArchive)))
+	mux.HandleFunc("POST /admin/locations/restore/{id}", s.requireAuth(s.requireCSRF(s.handleLocationRestore)))
+	mux.HandleFunc("POST /admin/locations/permanent-delete/{id}", s.requireAuth(s.requireCSRF(s.handleLocationPermanentDelete)))
 
 	// 8. Admin tags management
 	mux.HandleFunc("GET /admin/tags", s.requireAuth(s.handleAdminTags))
 	mux.HandleFunc("POST /admin/tags/new", s.requireAuth(s.requireCSRF(s.handleTagCreate)))
 	mux.HandleFunc("POST /admin/tags/edit/{id}", s.requireAuth(s.requireCSRF(s.handleTagEdit)))
-	mux.HandleFunc("POST /admin/tags/delete/{id}", s.requireAuth(s.requireCSRF(s.handleTagDelete)))
+	mux.HandleFunc("POST /admin/tags/delete/{id}", s.requireAuth(s.requireCSRF(s.handleTagRemove)))
+	mux.HandleFunc("POST /admin/tags/remove/{id}", s.requireAuth(s.requireCSRF(s.handleTagRemove)))
+	mux.HandleFunc("POST /admin/tags/archive/{id}", s.requireAuth(s.requireCSRF(s.handleTagArchive)))
+	mux.HandleFunc("POST /admin/tags/restore/{id}", s.requireAuth(s.requireCSRF(s.handleTagRestore)))
+	mux.HandleFunc("POST /admin/tags/permanent-delete/{id}", s.requireAuth(s.requireCSRF(s.handleTagPermanentDelete)))
 
 	// 9. Admin custom shortlinks manager
 	mux.HandleFunc("GET /admin/shortener", s.requireAuth(s.handleAdminShortener))
 	mux.HandleFunc("POST /admin/shortener/new", s.requireAuth(s.requireCSRF(s.handleLinkCreate)))
 	mux.HandleFunc("POST /admin/shortener/edit/{id}", s.requireAuth(s.requireCSRF(s.handleLinkSave)))
-	mux.HandleFunc("POST /admin/shortener/delete/{id}", s.requireAuth(s.requireCSRF(s.handleLinkDelete)))
+	mux.HandleFunc("POST /admin/shortener/delete/{id}", s.requireAuth(s.requireCSRF(s.handleLinkRemove)))
+	mux.HandleFunc("POST /admin/shortener/remove/{id}", s.requireAuth(s.requireCSRF(s.handleLinkRemove)))
+	mux.HandleFunc("POST /admin/shortener/archive/{id}", s.requireAuth(s.requireCSRF(s.handleLinkArchive)))
+	mux.HandleFunc("POST /admin/shortener/restore/{id}", s.requireAuth(s.requireCSRF(s.handleLinkRestore)))
+	mux.HandleFunc("POST /admin/shortener/permanent-delete/{id}", s.requireAuth(s.requireCSRF(s.handleLinkPermanentDelete)))
+	mux.HandleFunc("POST /admin/shortener/slug-length", s.requireAuth(s.requireCSRF(s.handleSlugLengthUpdate)))
 
 	// 10. QR & Labels
 	mux.HandleFunc("GET /admin/qr/{slug}", s.requireAuth(s.handleQR))

@@ -6,11 +6,12 @@ import (
 )
 
 type Tag struct {
-	ID          int64
-	Name        string
-	Color       string // Hex representation, e.g. "#3b82f6"
-	Description string
-	CreatedAt   time.Time
+	ID             int64
+	Name           string
+	Color          string // Hex representation, e.g. "#3b82f6"
+	Description    string
+	LifecycleState string // 'active', 'archived', 'removed'
+	CreatedAt      time.Time
 }
 
 func (d *DB) CreateTag(name, color, description string) (*Tag, error) {
@@ -35,12 +36,12 @@ func (d *DB) CreateTag(name, color, description string) (*Tag, error) {
 }
 
 func (d *DB) GetTag(id int64) (*Tag, error) {
-	row := d.Conn.QueryRow("SELECT id, name, color, description, created_at FROM tags WHERE id = ?", id)
+	row := d.Conn.QueryRow("SELECT id, name, color, description, lifecycle_state, created_at FROM tags WHERE id = ?", id)
 	return scanTag(row)
 }
 
 func (d *DB) GetTagByName(name string) (*Tag, error) {
-	row := d.Conn.QueryRow("SELECT id, name, color, description, created_at FROM tags WHERE name = ?", name)
+	row := d.Conn.QueryRow("SELECT id, name, color, description, lifecycle_state, created_at FROM tags WHERE name = ?", name)
 	return scanTag(row)
 }
 
@@ -74,8 +75,39 @@ func (d *DB) DeleteTag(id int64) error {
 	return err
 }
 
-func (d *DB) ListTags() ([]Tag, error) {
-	rows, err := d.Conn.Query("SELECT id, name, color, description, created_at FROM tags ORDER BY name ASC")
+func (d *DB) SoftRemoveTag(id int64) error {
+	var name string
+	err := d.Conn.QueryRow("SELECT name FROM tags WHERE id = ?", id).Scan(&name)
+	if err == nil && name == "Default Room" {
+		return fmt.Errorf("cannot remove the Default Room tag")
+	}
+	_, err = d.Conn.Exec("UPDATE tags SET lifecycle_state = 'removed' WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) ArchiveTag(id int64) error {
+	var name string
+	err := d.Conn.QueryRow("SELECT name FROM tags WHERE id = ?", id).Scan(&name)
+	if err == nil && name == "Default Room" {
+		return fmt.Errorf("cannot archive the Default Room tag")
+	}
+	_, err = d.Conn.Exec("UPDATE tags SET lifecycle_state = 'archived' WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) RestoreTag(id int64) error {
+	_, err := d.Conn.Exec("UPDATE tags SET lifecycle_state = 'active' WHERE id = ?", id)
+	return err
+}
+
+func (d *DB) ListTags(showRemoved bool) ([]Tag, error) {
+	query := "SELECT id, name, color, description, lifecycle_state, created_at FROM tags"
+	if !showRemoved {
+		query += " WHERE lifecycle_state != 'removed'"
+	}
+	query += " ORDER BY CASE lifecycle_state WHEN 'archived' THEN 1 WHEN 'removed' THEN 2 ELSE 0 END, name ASC"
+
+	rows, err := d.Conn.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +117,7 @@ func (d *DB) ListTags() ([]Tag, error) {
 	for rows.Next() {
 		var t Tag
 		var created string
-		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &t.Description, &created); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &t.Description, &t.LifecycleState, &created); err != nil {
 			return nil, err
 		}
 		t.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", created)
@@ -99,7 +131,7 @@ func scanTag(row interface {
 }) (*Tag, error) {
 	var t Tag
 	var created string
-	if err := row.Scan(&t.ID, &t.Name, &t.Color, &t.Description, &created); err != nil {
+	if err := row.Scan(&t.ID, &t.Name, &t.Color, &t.Description, &t.LifecycleState, &created); err != nil {
 		return nil, err
 	}
 	t.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", created)

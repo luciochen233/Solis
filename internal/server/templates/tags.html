@@ -7,6 +7,15 @@
         <p>Label and categorize assets to easily group similar items together (e.g. Tools, Electronics, Fragile)</p>
     </div>
 </div>
+<form action="/admin/tags" method="GET" class="filter-bar" style="margin-bottom: 1.5rem; justify-content: flex-end;">
+    {{if .EditingTag}}
+        <input type="hidden" name="edit" value="{{.EditingTag.ID}}">
+    {{end}}
+    <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; white-space: nowrap;">
+        <input type="checkbox" name="show_removed" value="1" {{if .ShowRemoved}}checked{{end}} onchange="this.form.submit()">
+        Show removed tags
+    </label>
+</form>
 
 <div class="detail-grid">
     <!-- Left Column: Tags List -->
@@ -25,11 +34,14 @@
                     <tbody>
                         {{if .Tags}}
                             {{range .Tags}}
-                                <tr>
+                                <tr class="{{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}">
                                     <td>
                                         <span class="tag-pill" style="background-color: {{.Color}}; color: #1c1917; padding: 0.35rem 0.75rem; font-size: 0.85rem;">
                                             {{.Name}}
                                         </span>
+                                        {{if eq .LifecycleState "archived"}}
+                                            <span class="status-pill archived" style="margin-left: 0.5rem; font-size: 0.7rem; padding: 0.1rem 0.4rem;">Archived</span>
+                                        {{end}}
                                     </td>
                                     <td>
                                         <code style="font-family: monospace; font-size: 0.9rem; background-color: var(--color-bg-base); padding: 0.15rem 0.35rem; border-radius: 4px; border: 1px solid var(--color-border);">
@@ -37,20 +49,53 @@
                                         </code>
                                     </td>
                                     <td style="color: var(--color-text-muted); font-size: 0.9rem;">{{.Description}}</td>
-                                    <td style="text-align: right;">
-                                        <div style="display: inline-flex; gap: 0.5rem;">
-                                            <a href="/admin/tags?edit={{.ID}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                Edit
-                                            </a>
-                                            {{if ne .Name "Default Room"}}
-                                            <form action="/admin/tags/delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to delete this tag? All associated items will lose this tag reference.')" style="margin: 0;">
-                                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                                                <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-                                                    Delete
-                                                </button>
-                                            </form>
-                                            {{else}}
+                                    <td class="actions-cell" style="text-align: right;">
+                                        <div style="display: inline-flex; gap: 0.5rem; align-items: center;">
+                                            {{if eq .Name "Default Room"}}
                                                 <span style="color: var(--color-text-light); font-size: 0.8rem; font-style: italic; padding: 0.35rem 0.65rem;">Locked</span>
+                                            {{else if eq .LifecycleState "removed"}}
+                                                <!-- Soft removed actions -->
+                                                <form action="/admin/tags/restore/{{.ID}}" method="POST" style="margin: 0;">
+                                                    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                    <button type="submit" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-color: #10b981; color: #10b981;">
+                                                        Restore
+                                                    </button>
+                                                </form>
+                                                <form action="/admin/tags/permanent-delete/{{.ID}}" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this tag? All associated items will lose this tag reference.')" style="margin: 0;">
+                                                    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                    <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                                        Delete Forever
+                                                    </button>
+                                                </form>
+                                            {{else}}
+                                                <!-- Active / Archived actions -->
+                                                {{if ne .LifecycleState "archived"}}
+                                                    <a href="/admin/tags?edit={{.ID}}&show_removed={{if $.ShowRemoved}}1{{else}}0{{end}}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                                        Edit
+                                                    </a>
+                                                {{end}}
+
+                                                <div class="actions-dropdown">
+                                                    <button class="btn btn-danger" onclick="toggleActionsDropdown(this, event)" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                                        Delete <span style="font-size: 0.65rem;">▼</span>
+                                                    </button>
+                                                    <div class="actions-dropdown-menu">
+                                                        <form action="/admin/tags/remove/{{.ID}}" method="POST" style="margin: 0;">
+                                                            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                            <button type="submit" class="actions-dropdown-item text-danger">
+                                                                🗑 Remove
+                                                            </button>
+                                                        </form>
+                                                        {{if ne .LifecycleState "archived"}}
+                                                            <form action="/admin/tags/archive/{{.ID}}" method="POST" style="margin: 0;">
+                                                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                                                <button type="submit" class="actions-dropdown-item text-warning">
+                                                                    📦 Archive
+                                                                </button>
+                                                            </form>
+                                                        {{end}}
+                                                    </div>
+                                                </div>
                                             {{end}}
                                         </div>
                                     </td>
