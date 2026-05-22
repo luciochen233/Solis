@@ -344,8 +344,20 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 			name = "New Asset"
 		}
 
-		// 3. Resolve the room tag automatically
+		// 3. Auto-tag with the selected catalog category
 		var tagIDs []int64
+		for _, cat := range s.catalog {
+			if cat.ID == category {
+				tag, err := s.db.GetTagByName(cat.Name)
+				if err != nil {
+					tag, err = s.db.CreateTag(cat.Name, cat.Color, "Auto-created from catalog category")
+				}
+				if err == nil {
+					tagIDs = append(tagIDs, tag.ID)
+				}
+				break
+			}
+		}
 		tagIDs = s.resolveRoomTag(lastLocID, tagIDs)
 
 		// 4. Construct category description
