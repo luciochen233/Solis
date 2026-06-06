@@ -19,7 +19,21 @@
     <div class="app-container {{if not .IsAuthenticated}}public-layout{{end}}">
         <!-- Sidebar Navigation -->
         {{if .IsAuthenticated}}
-        <aside class="sidebar">
+        <!-- Mobile Top Bar (hidden on desktop) -->
+        <header class="mobile-topbar">
+            <button type="button" class="mobile-menu-btn" aria-label="{{T "nav.menu"}}" aria-controls="sidebar" onclick="toggleSidebar()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+            </button>
+            <div class="brand">
+                <div class="brand-logo">S</div>
+                <span class="brand-name">Solis</span>
+            </div>
+        </header>
+        <!-- Backdrop shown behind the drawer on mobile -->
+        <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
+        <aside class="sidebar" id="sidebar">
             <div class="brand">
                 <div class="brand-logo">S</div>
                 <span class="brand-name">Solis</span>

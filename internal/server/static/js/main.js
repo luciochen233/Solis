@@ -17,7 +17,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 4. Initialize drag and drop mechanics for directories and assets
     initDragAndDrop();
+
+    // 5. Mobile sidebar drawer interactions
+    initMobileSidebar();
 });
+
+// Mobile off-canvas sidebar drawer
+function toggleSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    if (!sidebar) return;
+    sidebar.classList.contains("open") ? closeSidebar() : openSidebar();
+}
+
+function openSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.querySelector(".sidebar-backdrop");
+    if (sidebar) sidebar.classList.add("open");
+    if (backdrop) backdrop.classList.add("show");
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.querySelector(".sidebar-backdrop");
+    if (sidebar) sidebar.classList.remove("open");
+    if (backdrop) backdrop.classList.remove("show");
+}
+
+function initMobileSidebar() {
+    // Close the drawer after tapping a nav link so the destination is visible
+    document.querySelectorAll(".sidebar .nav-link").forEach(link => {
+        link.addEventListener("click", closeSidebar);
+    });
+
+    // Close on Escape for keyboard/accessibility
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeSidebar();
+    });
+}
 
 function setupToastListeners() {
     const observer = new MutationObserver((mutations) => {
