@@ -21,7 +21,7 @@
 
                 <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">{{T "items.edit.basic_info"}}</h3>
 
-                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+                <div class="form-grid form-grid--2-1">
                     <div class="form-group">
                         <label for="name" class="form-label">{{T "items.edit.asset_name"}}</label>
                         <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Cordless Hammer Drill" value="{{.EditingItem.Name}}" required>
@@ -37,7 +37,7 @@
                     <textarea id="description" name="description" class="form-control" rows="3" placeholder="e.g. Brushless motor hammer drill, includes two 18V Li-ion batteries">{{.EditingItem.Description}}</textarea>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div class="form-grid form-grid--3">
                     <div class="form-group">
                         <label for="model_number" class="form-label">{{T "items.edit.model_number"}}</label>
                         <input type="text" id="model_number" name="model_number" class="form-control" placeholder="e.g. DCD796" value="{{.EditingItem.ModelNumber}}">
@@ -58,7 +58,7 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="form-grid form-grid--2" style="margin-bottom: 2rem;">
                     <div class="form-group">
                         <label for="location_id" class="form-label">{{T "items.edit.location"}}</label>
                         <select id="location_id" name="location_id" class="form-control" required>
@@ -84,7 +84,7 @@
 
                 <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">{{T "items.edit.purchase_warranty"}}</h3>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem;">
+                <div class="form-grid form-grid--4">
                     <div class="form-group">
                         <label for="purchase_price" class="form-label">{{T "items.edit.purchase_price"}}</label>
                         <input type="number" id="purchase_price" name="purchase_price" class="form-control" step="0.01" min="0" placeholder="e.g. 149.99" value="{{if .EditingItem.PurchasePrice.Valid}}{{.EditingItem.PurchasePrice.Float64}}{{end}}">
@@ -105,7 +105,7 @@
 
                 <h3 style="font-weight: 700; margin-bottom: 1.5rem; color: var(--color-brand-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-top: 2rem;">{{T "items.edit.docs_visuals"}}</h3>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <div class="form-grid form-grid--2">
                     <div class="form-group">
                         <label for="image" class="form-label">{{T "items.edit.photo"}}</label>
                         <input type="file" id="image" name="image" class="form-control" accept="image/*">
@@ -782,7 +782,7 @@
                 </p>
 
                 {{if .IsAuthenticated}}
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
+                <div class="form-grid form-grid--2" style="border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
                     <div>
                         <span style="font-size: 0.85rem; color: var(--color-text-light); text-transform: uppercase; font-weight: 600; display: block;">{{T "items.detail.model_number"}}</span>
                         <span style="font-weight: 500; font-size: 1.05rem;">{{if .Item.ModelNumber}}{{.Item.ModelNumber}}{{else}}--{{end}}</span>
@@ -951,7 +951,7 @@
             <input type="text" name="search" class="form-control" placeholder="{{T "items.search_placeholder"}}" value="{{.SearchQuery}}">
         </div>
 
-        <select name="status" class="form-control" style="width: 180px;" onchange="this.form.submit()">
+        <select name="status" class="form-control filter-select" onchange="this.form.submit()">
             <option value="">{{T "items.all_statuses"}}</option>
             <option value="In Use" {{if eq .SelectedStatus "In Use"}}selected{{end}}>{{T "status.in_use"}}</option>
             <option value="In Storage" {{if eq .SelectedStatus "In Storage"}}selected{{end}}>{{T "status.in_storage"}}</option>
@@ -960,14 +960,14 @@
             <option value="Disposed" {{if eq .SelectedStatus "Disposed"}}selected{{end}}>{{T "status.disposed"}}</option>
         </select>
 
-        <select name="location" class="form-control" style="width: 200px;" onchange="this.form.submit()">
+        <select name="location" class="form-control filter-select" onchange="this.form.submit()">
             <option value="">{{T "items.all_locations"}}</option>
             {{range .Locations}}
                 <option value="{{.ID}}" {{if eq $.SelectedLocation .ID}}selected{{end}}>{{.Name}}</option>
             {{end}}
         </select>
 
-        <select name="tag" class="form-control" style="width: 180px;" onchange="this.form.submit()">
+        <select name="tag" class="form-control filter-select" onchange="this.form.submit()">
             <option value="">{{T "items.all_tags"}}</option>
             {{range .Tags}}
                 <option value="{{.ID}}" {{if eq $.SelectedTag .ID}}selected{{end}}>{{.Name}}</option>
