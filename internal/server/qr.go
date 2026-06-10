@@ -44,6 +44,7 @@ func (s *Server) handleQR(w http.ResponseWriter, r *http.Request) {
 
 	// Write PNG to response
 	w.Header().Set("Content-Type", "image/png")
-	w.Header().Set("Cache-Control", "public, max-age=86400") // Cache for 24h as QR codes are static
+	// private: this is an authenticated route, so shared caches must not store it
+	w.Header().Set("Cache-Control", "private, max-age=86400")
 	w.Write(pngData)
 }

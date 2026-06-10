@@ -6,16 +6,20 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"Solis/internal/config"
 	"Solis/internal/db"
 )
 
 func TestMCPRequiresAuthentication(t *testing.T) {
-	srv := &Server{cfg: &config.Config{
-		Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
-		MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
-	}}
+	srv := &Server{
+		cfg: &config.Config{
+			Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
+			MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
+		},
+		limiter: newRateLimiter(2 * time.Second),
+	}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
 	rec := httptest.NewRecorder()
@@ -28,10 +32,13 @@ func TestMCPRequiresAuthentication(t *testing.T) {
 }
 
 func TestMCPListsToolsWithAPIKey(t *testing.T) {
-	srv := &Server{cfg: &config.Config{
-		Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
-		MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
-	}}
+	srv := &Server{
+		cfg: &config.Config{
+			Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
+			MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
+		},
+		limiter: newRateLimiter(2 * time.Second),
+	}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
 	req.Header.Set("Authorization", "Bearer test-key")
@@ -48,10 +55,13 @@ func TestMCPListsToolsWithAPIKey(t *testing.T) {
 }
 
 func TestMCPRejectsUnexpectedOrigin(t *testing.T) {
-	srv := &Server{cfg: &config.Config{
-		Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
-		MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
-	}}
+	srv := &Server{
+		cfg: &config.Config{
+			Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
+			MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
+		},
+		limiter: newRateLimiter(2 * time.Second),
+	}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
 	req.Header.Set("Authorization", "Bearer test-key")

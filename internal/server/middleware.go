@@ -97,12 +97,19 @@ func (s *Server) csrfToken(w http.ResponseWriter, r *http.Request) string {
 		return c.Value
 	}
 	b := make([]byte, 32)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// Never issue a predictable token; fail closed with an empty token
+		// that can never match a submitted value.
+		return ""
+	}
 	token := hex.EncodeToString(b)
+	// HttpOnly is safe here: the frontend reads the token from the page's
+	// <meta name="csrf-token"> tag, never from the cookie itself.
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf",
 		Value:    token,
 		Path:     "/",
+		HttpOnly: true,
 		Secure:   s.isHTTPS(),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   86400,
@@ -112,7 +119,7 @@ func (s *Server) csrfToken(w http.ResponseWriter, r *http.Request) string {
 
 func verifyCSRF(r *http.Request) bool {
 	cookie, err := r.Cookie("csrf")
-	if err != nil {
+	if err != nil || cookie.Value == "" {
 		return false
 	}
 
@@ -162,7 +169,31 @@ func (rl *rateLimiter) Allow(ip string) bool {
 		return false
 	}
 	rl.clients[ip] = now
-	// Lazy cleanup: purge stale entries when map grows large
+	rl.purgeLocked(now)
+	return true
+}
+
+// Blocked reports whether the IP is inside the rate-limit window without
+// consuming a slot. Used to gate endpoints where only failures should count.
+func (rl *rateLimiter) Blocked(ip string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	last, ok := rl.clients[ip]
+	return ok && time.Since(last) < rl.window
+}
+
+// Record marks a (failed) attempt for the IP, starting its rate-limit window.
+func (rl *rateLimiter) Record(ip string) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	now := time.Now()
+	rl.clients[ip] = now
+	rl.purgeLocked(now)
+}
+
+// purgeLocked lazily removes stale entries when the map grows large.
+// Caller must hold rl.mu.
+func (rl *rateLimiter) purgeLocked(now time.Time) {
 	if len(rl.clients) > 1000 {
 		for k, v := range rl.clients {
 			if now.Sub(v) > rl.window*10 {
@@ -170,17 +201,17 @@ func (rl *rateLimiter) Allow(ip string) bool {
 			}
 		}
 	}
-	return true
 }
 
 func clientIP(r *http.Request) string {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	if isPrivateIP(host) {
+		// Use the RIGHTMOST X-Forwarded-For entry: it is the one appended by
+		// our own (trusted) reverse proxy. Earlier entries are client-supplied
+		// and trivially spoofable, which would defeat rate limiting.
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			if i := strings.Index(xff, ","); i > 0 {
-				return strings.TrimSpace(xff[:i])
-			}
-			return strings.TrimSpace(xff)
+			parts := strings.Split(xff, ",")
+			return strings.TrimSpace(parts[len(parts)-1])
 		}
 		if xri := r.Header.Get("X-Real-Ip"); xri != "" {
 			return strings.TrimSpace(xri)

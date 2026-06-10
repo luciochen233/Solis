@@ -47,7 +47,16 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		writeMCPHTTPError(w, nil, http.StatusForbidden, -32000, "Forbidden origin")
 		return
 	}
+	// Rate limit credential guessing: IPs with a recent failed auth attempt
+	// are blocked before credentials are even checked. Successful requests
+	// are never throttled.
+	ip := clientIP(r)
+	if s.limiter.Blocked(ip) {
+		writeMCPHTTPError(w, nil, http.StatusTooManyRequests, -32000, "Too many failed authentication attempts. Please wait.")
+		return
+	}
 	if !s.authorizeMCP(r) {
+		s.limiter.Record(ip)
 		w.Header().Set("WWW-Authenticate", `Bearer realm="Solis MCP", Basic realm="Solis MCP"`)
 		writeMCPHTTPError(w, nil, http.StatusUnauthorized, -32000, "Unauthorized")
 		return
@@ -109,10 +118,14 @@ func (s *Server) authorizeMCP(r *http.Request) bool {
 	}
 
 	username, password, ok := r.BasicAuth()
-	if !ok || username != s.cfg.Admin.Username {
+	if !ok {
 		return false
 	}
-	return bcrypt.CompareHashAndPassword([]byte(s.cfg.Admin.PasswordHash), []byte(password)) == nil
+	// Constant-time username check and unconditional bcrypt comparison so
+	// response timing does not reveal whether the username was valid.
+	usernameOK := constantTimeEqual(username, s.cfg.Admin.Username)
+	passwordOK := bcrypt.CompareHashAndPassword([]byte(s.cfg.Admin.PasswordHash), []byte(password)) == nil
+	return usernameOK && passwordOK
 }
 
 func (s *Server) validMCPOrigin(r *http.Request) bool {

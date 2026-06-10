@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -124,8 +125,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
-	// Verify Admin Credentials using Bcrypt
-	if username == s.cfg.Admin.Username && bcrypt.CompareHashAndPassword([]byte(s.cfg.Admin.PasswordHash), []byte(password)) == nil {
+	// Verify Admin Credentials using Bcrypt. Compare the username in constant
+	// time and always run the bcrypt check so response timing does not reveal
+	// whether the username was valid.
+	usernameOK := subtle.ConstantTimeCompare([]byte(username), []byte(s.cfg.Admin.Username)) == 1
+	passwordOK := bcrypt.CompareHashAndPassword([]byte(s.cfg.Admin.PasswordHash), []byte(password)) == nil
+	if usernameOK && passwordOK {
 		token, err := s.sessions.Create()
 		if err != nil {
 			http.Error(w, "Session creation failed", http.StatusInternalServerError)

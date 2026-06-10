@@ -200,8 +200,10 @@ func (s *Server) handleServeUploads(w http.ResponseWriter, r *http.Request) {
 	filename := filepath.Base(r.URL.Path)
 	filePath := filepath.Join(s.cfg.Upload.Dir, filename)
 
-	// Validate path is strictly inside s.cfg.Upload.Dir
-	if !strings.HasPrefix(filepath.Clean(filePath), filepath.Clean(s.cfg.Upload.Dir)) {
+	// Validate path is strictly inside s.cfg.Upload.Dir (the trailing
+	// separator prevents sibling-directory matches like "uploads-evil")
+	uploadRoot := filepath.Clean(s.cfg.Upload.Dir) + string(filepath.Separator)
+	if !strings.HasPrefix(filepath.Clean(filePath), uploadRoot) {
 		http.Error(w, "Access Denied", http.StatusForbidden)
 		return
 	}
