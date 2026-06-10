@@ -58,10 +58,17 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+}
+
 /* Global Grid Layout */
 .app-container {
     display: flex;
     min-height: 100vh;
+    min-width: 0;
 }
 
 /* Premium Sidebar Navigation */
@@ -160,6 +167,7 @@ body {
     flex-grow: 1;
     padding: 2.5rem 3.5rem;
     max-width: 1400px;
+    min-width: 0;
 }
 
 .page-header {
@@ -239,6 +247,7 @@ body {
     padding: 1.75rem;
     margin-bottom: 2rem;
     transition: box-shadow 0.3s ease, border-color 0.3s ease;
+    min-width: 0;
 }
 
 .card:hover {
@@ -304,6 +313,7 @@ body {
 /* Items Tables and Layouts */
 .data-table-wrapper {
     overflow-x: auto;
+    max-width: 100%;
 }
 
 .data-table {
@@ -388,6 +398,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 2rem;
+    min-width: 0;
 }
 
 .item-visuals {
@@ -427,6 +438,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 2rem;
+    min-width: 0;
 }
 
 .qr-card {
@@ -922,6 +934,7 @@ tr:last-child .actions-dropdown-menu {
     align-items: center;
     gap: 1rem;
     flex-grow: 1;
+    min-width: 0;
 }
 
 .folder-icon-wrapper {
@@ -945,6 +958,7 @@ tr:last-child .actions-dropdown-menu {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
+    min-width: 0;
 }
 
 .folder-name-link {
@@ -953,6 +967,7 @@ tr:last-child .actions-dropdown-menu {
     text-decoration: none;
     font-size: 1.05rem;
     transition: color 0.2s ease;
+    overflow-wrap: anywhere;
 }
 
 .folder-name-link:hover {
@@ -1068,6 +1083,7 @@ tr:last-child .actions-dropdown-menu {
     justify-content: space-between;
     align-items: flex-start;
     gap: 0.5rem;
+    min-width: 0;
 }
 
 .item-card-title {
@@ -1080,6 +1096,7 @@ tr:last-child .actions-dropdown-menu {
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    min-width: 0;
 }
 
 .item-card-title:hover {
@@ -1159,20 +1176,30 @@ tr:last-child .actions-dropdown-menu {
 }
 
 @media (max-width: 768px) {
+    body {
+        overflow-x: hidden;
+    }
+
     .public-header {
         padding: 1rem 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
     }
     .folders-grid {
         grid-template-columns: 1fr;
+        min-width: 0;
     }
     .items-grid {
         grid-template-columns: 1fr;
+        min-width: 0;
     }
 
     /* Stack vertically so the top bar spans full width above content
        instead of becoming a flex item beside it */
     .app-container {
         display: block;
+        width: 100%;
+        overflow-x: hidden;
     }
 
     /* Show the mobile top bar */
@@ -1182,6 +1209,7 @@ tr:last-child .actions-dropdown-menu {
 
     /* Sidebar becomes an off-canvas drawer */
     .sidebar {
+        width: min(260px, 86vw);
         transform: translateX(-100%);
         transition: transform 0.25s ease;
         box-shadow: var(--shadow-lg);
@@ -1198,7 +1226,10 @@ tr:last-child .actions-dropdown-menu {
     /* Content takes the full width; no reserved sidebar gutter */
     .main-wrapper {
         margin-left: 0;
-        padding: 1.5rem 1.25rem;
+        padding: 1.25rem 1rem;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
     }
 
     /* Collapse all multi-column layouts to a single column */
@@ -1209,18 +1240,39 @@ tr:last-child .actions-dropdown-menu {
     .form-grid--3,
     .form-grid--4 {
         grid-template-columns: 1fr;
+        min-width: 0;
+    }
+
+    .detail-main,
+    .detail-sidebar,
+    .folder-view-container,
+    .directory-section,
+    .card,
+    .filter-bar,
+    .data-table-wrapper {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .card {
+        padding: 1rem;
+        margin-bottom: 1.25rem;
     }
 
     /* Search & filter bar stacks vertically with full-width controls */
     .filter-bar {
         flex-wrap: wrap;
         align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.75rem;
     }
     .filter-bar > * {
         width: 100%;
     }
     .filter-bar .filter-select {
         width: 100%;
+        min-width: 0;
     }
 
     /* Page header: title and actions stack instead of overflowing */
@@ -1228,6 +1280,168 @@ tr:last-child .actions-dropdown-menu {
         flex-direction: column;
         align-items: flex-start;
         gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .page-title h1,
+    .folder-title {
+        font-size: 1.6rem;
+        overflow-wrap: anywhere;
+    }
+
+    .page-header > div,
+    .page-header .btn,
+    .folder-controls > div,
+    .folder-controls .btn {
+        max-width: 100%;
+    }
+
+    .btn {
+        max-width: 100%;
+        white-space: normal;
+    }
+
+    .status-pill,
+    .tag-pill {
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .item-card-header {
+        flex-wrap: wrap;
+    }
+
+    .folder-card {
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .actions-dropdown-menu {
+        max-width: calc(100vw - 2rem);
+    }
+
+    #toast-container {
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
+    }
+
+    .toast {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .main-wrapper .category-grid,
+    .main-wrapper .pills-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .wizard-progress-bar {
+        max-width: 100%;
+    }
+
+    .wizard-step .step-label {
+        max-width: 5.5rem;
+        text-align: center;
+        font-size: 0.75rem;
+    }
+
+    .data-table-wrapper:has(.data-table--responsive) {
+        overflow-x: visible;
+    }
+
+    .data-table--responsive,
+    .data-table--responsive thead,
+    .data-table--responsive tbody,
+    .data-table--responsive tr,
+    .data-table--responsive td {
+        display: block;
+        width: 100%;
+    }
+
+    .data-table--responsive thead,
+    .data-table--responsive thead tr,
+    .data-table--responsive thead th {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .data-table--responsive thead th {
+        padding: 0;
+        border: 0;
+    }
+
+    .data-table--responsive tr {
+        padding: 0.85rem 1rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .data-table--responsive tr:last-child {
+        border-bottom: none;
+    }
+
+    .data-table--responsive td {
+        border-bottom: none;
+        padding: 0.45rem 0;
+        text-align: left !important;
+    }
+
+    .data-table--responsive td:not([colspan]) {
+        display: grid;
+        grid-template-columns: minmax(6.75rem, 36%) minmax(0, 1fr);
+        gap: 0.75rem;
+        align-items: start;
+    }
+
+    .data-table--responsive td::before {
+        content: attr(data-label);
+        color: var(--color-text-light);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .data-table--responsive td[colspan]::before {
+        content: none;
+    }
+
+    .data-table--responsive td > *,
+    .data-table--responsive td div,
+    .data-table--responsive td form {
+        min-width: 0;
+    }
+
+    .data-table--responsive .actions-cell > div {
+        display: flex !important;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 0.5rem;
+    }
+
+    .data-table--responsive .actions-cell .btn {
+        flex: 0 1 auto;
+    }
+
+    .data-table--responsive td a,
+    .data-table--responsive td code,
+    .data-table--responsive td span,
+    .data-table--responsive td div {
+        overflow-wrap: anywhere;
+    }
+
+    .data-table--responsive td div[title] {
+        max-width: 100% !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
     }
 }
 

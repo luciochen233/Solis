@@ -24,7 +24,7 @@
     <div class="detail-main">
         <div class="card" style="padding: 0;">
             <div class="data-table-wrapper">
-                <table class="data-table">
+                <table class="data-table data-table--responsive">
                     <thead>
                         <tr>
                             <th>{{T "locations.col.name"}}</th>
@@ -37,13 +37,13 @@
                         {{if .Locations}}
                             {{range .Locations}}
                                 <tr class="{{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}">
-                                    <td style="font-weight: 600;">
+                                    <td data-label="{{T "locations.col.name"}}" style="font-weight: 600;">
                                         <a href="/{{.Slug}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.Name}}</a>
                                         {{if eq .LifecycleState "archived"}}
                                             <span class="status-pill archived" style="margin-left: 0.5rem; font-size: 0.7rem; padding: 0.1rem 0.4rem;">{{T "common.archived"}}</span>
                                         {{end}}
                                     </td>
-                                    <td>
+                                    <td data-label="{{T "locations.col.parent"}}">
                                         {{if .ParentName.Valid}}
                                             <span style="color: var(--color-text-muted); font-size: 0.9rem;">
                                                 {{.ParentName.String}} &rarr;
@@ -52,8 +52,8 @@
                                             <span style="color: var(--color-text-light); font-size: 0.85rem;">{{T "common.root"}}</span>
                                         {{end}}
                                     </td>
-                                    <td style="color: var(--color-text-muted); font-size: 0.9rem;">{{.Description}}</td>
-                                    <td class="actions-cell" style="text-align: right;">
+                                    <td data-label="{{T "common.description"}}" style="color: var(--color-text-muted); font-size: 0.9rem;">{{.Description}}</td>
+                                    <td data-label="{{T "common.actions"}}" class="actions-cell" style="text-align: right;">
                                         <div style="display: inline-flex; gap: 0.5rem; align-items: center;">
                                             {{if eq .ID 1}}
                                                 <span style="color: var(--color-text-light); font-size: 0.8rem; font-style: italic; padding: 0.35rem 0.65rem;">{{T "common.locked"}}</span>

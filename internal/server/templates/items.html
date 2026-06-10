@@ -989,7 +989,7 @@
     <!-- Assets Inventory Table -->
     <div class="card" style="padding: 0;">
         <div class="data-table-wrapper">
-            <table class="data-table">
+            <table class="data-table data-table--responsive">
                 <thead>
                     <tr>
                         <th style="width: 80px;">{{T "items.col.qr"}}</th>
@@ -1005,7 +1005,7 @@
                     {{if .Items}}
                         {{range .Items}}
                             <tr class="{{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}">
-                                <td style="text-align: center; vertical-align: middle;">
+                                <td data-label="{{T "items.col.qr"}}" style="text-align: center; vertical-align: middle;">
                                     {{if .ShortSlug}}
                                         <a href="javascript:void(0)" onclick="openQRModal('{{.ShortSlug}}', '{{.Name}}')">
                                             <img src="/admin/qr/{{.ShortSlug}}" alt="QR Label" style="width: 42px; height: 42px; border: 1px solid var(--color-border); padding: 1px; border-radius: 4px; background: white; cursor: pointer;">
@@ -1014,7 +1014,7 @@
                                         <span style="color: var(--color-text-light); font-size: 0.75rem;">--</span>
                                     {{end}}
                                 </td>
-                                <td>
+                                <td data-label="{{T "items.col.name"}}">
                                     <div style="display: flex; flex-direction: column;">
                                         <a href="/admin?view={{.ID}}" style="font-weight: 700; color: var(--color-text-main); text-decoration: none; font-size: 1.05rem;">
                                             {{.Name}}
@@ -1024,7 +1024,7 @@
                                         {{end}}
                                     </div>
                                 </td>
-                                <td>
+                                <td data-label="{{T "items.col.location"}}">
                                     {{if .LocationName.Valid}}
                                         <span style="font-weight: 500; font-size: 0.95rem;">
                                             <a href="/{{.LocationSlug.String}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.LocationName.String}}</a>
@@ -1033,7 +1033,7 @@
                                         <span style="color: var(--color-text-light); font-style: italic; font-size: 0.9rem;">{{T "common.unassigned"}}</span>
                                     {{end}}
                                 </td>
-                                <td>
+                                <td data-label="{{T "items.col.status"}}">
                                     {{if eq .LifecycleState "archived"}}
                                         <span class="status-pill archived">{{T "common.archived"}}</span>
                                     {{else}}
@@ -1042,17 +1042,17 @@
                                         </span>
                                     {{end}}
                                 </td>
-                                <td style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); text-align: center;">
+                                <td data-label="{{T "items.col.quantity"}}" style="font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted); text-align: center;">
                                     {{.Quantity}}
                                 </td>
-                                <td>
+                                <td data-label="{{T "items.col.tags"}}">
                                     <div class="tag-list">
                                         {{range .Tags}}
                                             <a href="/admin?tag={{.ID}}" style="text-decoration: none;"><span class="tag-pill" style="background-color: {{.Color}};">{{.Name}}</span></a>
                                         {{end}}
                                     </div>
                                 </td>
-                                <td class="actions-cell" style="text-align: right;">
+                                <td data-label="{{T "common.actions"}}" class="actions-cell" style="text-align: right;">
                                     <div style="display: inline-flex; gap: 0.5rem; align-items: center;">
                                         {{if eq .LifecycleState "removed"}}
                                             <!-- Soft removed item actions -->

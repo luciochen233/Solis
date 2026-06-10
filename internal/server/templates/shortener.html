@@ -22,7 +22,7 @@
     <div class="detail-main">
         <div class="card" style="padding: 0;">
             <div class="data-table-wrapper">
-                <table class="data-table">
+                <table class="data-table data-table--responsive">
                     <thead>
                         <tr>
                             <th>{{T "shortener.col.slug"}}</th>
@@ -36,7 +36,7 @@
                         {{if .Links}}
                             {{range .Links}}
                                 <tr class="{{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}">
-                                    <td>
+                                    <td data-label="{{T "shortener.col.slug"}}">
                                         <div style="display: flex; flex-direction: column; gap: 0.15rem;">
                                             <div style="display: flex; align-items: center; gap: 0.35rem;">
                                                 <a href="/s/{{.Slug}}" target="_blank" style="font-weight: 700; color: var(--color-brand-primary); text-decoration: none;">
@@ -52,12 +52,12 @@
                                             </a>
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="{{T "shortener.col.target_url"}}">
                                         <div style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; font-size: 0.85rem;" title="{{.URL}}">
                                             {{.URL}}
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="{{T "shortener.col.link_type"}}">
                                         {{if .ItemID.Valid}}
                                             <span style="font-size: 0.8rem; font-weight: 600; color:#065f46; background-color:#d1fae5; padding: 0.2rem 0.5rem; border-radius: 4px;">
                                                 {{T "shortener.asset_link"}} #{{.ItemID.Int64}}
@@ -68,10 +68,10 @@
                                             </span>
                                         {{end}}
                                     </td>
-                                    <td style="text-align: center; font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted);">
+                                    <td data-label="{{T "shortener.col.clicks"}}" style="text-align: center; font-weight: 600; font-size: 0.95rem; color: var(--color-text-muted);">
                                         {{.Clicks}}
                                     </td>
-                                    <td class="actions-cell" style="text-align: right;">
+                                    <td data-label="{{T "common.actions"}}" class="actions-cell" style="text-align: right;">
                                         {{if .ItemID.Valid}}
                                             <!-- Asset link modifications are handled through items CRUD -->
                                             <span style="color: var(--color-text-light); font-size: 0.85rem; font-style: italic;">{{T "shortener.managed_by_asset"}}</span>
