@@ -1445,3 +1445,315 @@ tr:last-child .actions-dropdown-menu {
     }
 }
 
+
+/* ==========================================
+   Container Array Drawer Grid (3D view)
+   ========================================== */
+
+.drawer-array-hint {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.85rem;
+}
+
+.drawer-cabinet-wrapper {
+    overflow-x: auto;
+    padding: 1rem 0.25rem 1.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.drawer-cabinet {
+    display: grid;
+    grid-template-columns: repeat(var(--drawer-cols, 4), minmax(86px, 1fr));
+    gap: 10px;
+    padding: 14px;
+    background: linear-gradient(160deg, #57534e, #3f3c39);
+    border-radius: 14px;
+    border: 1px solid #292524;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.45), 0 10px 24px rgba(0, 0, 0, 0.18);
+    perspective: 1100px;
+    width: max-content;
+    min-width: 100%;
+}
+
+.drawer-cell {
+    position: relative;
+    aspect-ratio: 5 / 4;
+    min-width: 86px;
+    transform-style: preserve-3d;
+    perspective: 700px;
+}
+
+/* Dark cavity revealed behind a slid-out drawer */
+.drawer-cavity {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: radial-gradient(ellipse at 50% 30%, #1c1917 20%, #000 100%);
+    box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.8);
+}
+
+.drawer-tray {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    cursor: grab;
+    touch-action: pan-y;
+}
+
+.drawer-tray.empty-tray {
+    cursor: pointer;
+}
+
+.drawer-front {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 8px;
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--drawer-color, #e7e5e4) 88%, white),
+        var(--drawer-color, #d6d3d1));
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+
+/* Drawer side walls give depth when the tray slides forward */
+.drawer-tray::before,
+.drawer-tray::after {
+    content: "";
+    position: absolute;
+    top: 6%;
+    bottom: 6%;
+    width: 34px;
+    background: linear-gradient(90deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.2));
+    transform-origin: left center;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.drawer-tray::before {
+    left: 1px;
+    transform: rotateY(-86deg);
+}
+
+.drawer-tray::after {
+    right: 1px;
+    transform-origin: right center;
+    transform: rotateY(86deg);
+}
+
+.drawer-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: rgba(28, 25, 23, 0.85);
+    text-align: center;
+    line-height: 1.15;
+    max-height: 2.3em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.drawer-handle {
+    width: 46%;
+    height: 7px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #fafaf9, #a8a29e);
+    border: 1px solid rgba(0, 0, 0, 0.35);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Slide-out animation: hover (desktop) or .open (tap on mobile) */
+@media (hover: hover) {
+    .drawer-cell.has-drawer:hover .drawer-tray {
+        transform: translate3d(0, 12%, 46px) rotateX(-7deg);
+        z-index: 5;
+    }
+    .drawer-cell.has-drawer:hover .drawer-tray::before,
+    .drawer-cell.has-drawer:hover .drawer-tray::after {
+        opacity: 1;
+    }
+}
+
+.drawer-cell.open .drawer-tray {
+    transform: translate3d(0, 12%, 46px) rotateX(-7deg);
+    z-index: 5;
+}
+
+.drawer-cell.open .drawer-tray::before,
+.drawer-cell.open .drawer-tray::after {
+    opacity: 1;
+}
+
+/* Empty slot */
+.drawer-cell.empty .drawer-front {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1.5px dashed rgba(255, 255, 255, 0.28);
+    box-shadow: none;
+}
+
+.drawer-cell.empty .drawer-add-icon {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.45);
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.drawer-cell.empty:hover .drawer-add-icon,
+.drawer-cell.empty:focus-visible .drawer-add-icon {
+    color: rgba(255, 255, 255, 0.85);
+    transform: scale(1.2);
+}
+
+/* Drag & drop swap states */
+.drawer-cell.drag-source .drawer-tray {
+    opacity: 0.35;
+}
+
+.drawer-cell.drop-target .drawer-front {
+    outline: 3px solid var(--color-brand-accent);
+    outline-offset: 2px;
+}
+
+.drawer-drag-ghost {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1.05) rotate(-2deg);
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
+    border-radius: 8px;
+}
+
+/* Content summary peek (relocated to <body> and fixed-positioned by JS) */
+.drawer-peek {
+    display: none;
+    position: fixed;
+    z-index: 900;
+    width: 215px;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+    padding: 0.7rem 0.8rem;
+    font-size: 0.82rem;
+}
+
+.drawer-peek.show {
+    display: block;
+}
+
+.drawer-peek-name {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+}
+
+.drawer-peek-count {
+    display: block;
+    color: var(--color-brand-primary);
+    font-weight: 600;
+}
+
+.drawer-peek-items {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--color-text-muted);
+    font-style: normal;
+    margin-top: 0.2rem;
+}
+
+.drawer-peek-actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.drawer-peek-btn {
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-base);
+    color: var(--color-text-main);
+    border-radius: 6px;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.drawer-peek-btn:hover {
+    border-color: var(--color-brand-primary);
+    color: var(--color-brand-primary);
+}
+
+.drawer-peek-btn.danger {
+    color: #b91c1c;
+}
+
+.drawer-peek-btn.danger:hover {
+    border-color: #b91c1c;
+}
+
+/* Drawer modal */
+.drawer-modal-backdrop[hidden] {
+    display: none !important;
+}
+
+.drawer-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 950;
+    background: rgba(28, 25, 23, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.drawer-modal {
+    width: 100%;
+    max-width: 380px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.drawer-swatch {
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    padding: 0;
+}
+
+.drawer-swatch:hover {
+    transform: scale(1.12);
+}
+
+@media (max-width: 768px) {
+    .drawer-cabinet {
+        grid-template-columns: repeat(var(--drawer-cols, 4), minmax(64px, 1fr));
+        gap: 7px;
+        padding: 10px;
+    }
+
+    .drawer-cell {
+        min-width: 64px;
+    }
+
+    .drawer-label {
+        font-size: 0.6rem;
+    }
+}

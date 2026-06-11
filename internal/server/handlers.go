@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -54,6 +55,14 @@ type PageData struct {
 	CurrentLocation  *db.Location
 	Breadcrumbs      []db.Location
 	ChildLocations   []db.Location
+	DrawerGrid       [][]DrawerCell
+}
+
+// DrawerCell is one slot of a container array grid; Drawer is nil for empty slots.
+type DrawerCell struct {
+	Row    int64
+	Col    int64
+	Drawer *db.Drawer
 }
 
 
@@ -751,13 +760,31 @@ func (s *Server) handleLocationCreate(w http.ResponseWriter, r *http.Request) {
 		parentID = sql.NullInt64{Int64: id, Valid: true}
 	}
 
-	_, err := s.db.CreateLocation(name, desc, parentID, "")
+	loc, err := s.db.CreateLocation(name, desc, parentID, "")
 	if err != nil {
 		http.Error(w, "Failed to create location", http.StatusInternalServerError)
 		return
 	}
 
+	if rows, cols := parseGridSize(r); rows > 0 && cols > 0 {
+		_ = s.db.SetLocationGrid(loc.ID, rows, cols)
+	}
+
 	http.Redirect(w, r, "/admin/locations?toast=Location+created+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+// parseGridSize reads the container array dimensions from the location form.
+// Returns 0,0 when the container array option is unchecked or values are invalid.
+func parseGridSize(r *http.Request) (int64, int64) {
+	if r.FormValue("is_array") == "" {
+		return 0, 0
+	}
+	rows, _ := strconv.ParseInt(r.FormValue("grid_rows"), 10, 64)
+	cols, _ := strconv.ParseInt(r.FormValue("grid_cols"), 10, 64)
+	if rows < 1 || cols < 1 || rows > db.MaxGridSize || cols > db.MaxGridSize {
+		return 0, 0
+	}
+	return rows, cols
 }
 
 func (s *Server) handleLocationEdit(w http.ResponseWriter, r *http.Request) {
@@ -777,6 +804,13 @@ func (s *Server) handleLocationEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = s.db.UpdateLocation(id, name, desc, parentID, "")
+
+	rows, cols := parseGridSize(r)
+	if err := s.db.SetLocationGrid(id, rows, cols); err != nil {
+		http.Redirect(w, r, "/admin/locations?toast="+url.QueryEscape(err.Error())+"&toast_type=error", http.StatusSeeOther)
+		return
+	}
+
 	http.Redirect(w, r, "/admin/locations?toast=Location+updated+successfully&toast_type=success", http.StatusSeeOther)
 }
 
@@ -822,6 +856,126 @@ func (s *Server) handleLocationPermanentDelete(w http.ResponseWriter, r *http.Re
 
 	_ = s.db.DeleteLocation(id)
 	http.Redirect(w, r, "/admin/locations?show_removed=1&toast=Location+deleted+forever+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+// ==========================================
+// 4b. CONTAINER ARRAY DRAWER HANDLERS
+// ==========================================
+
+// redirectToArray sends the user back to the container array folder view.
+func (s *Server) redirectToArray(w http.ResponseWriter, r *http.Request, arrayID int64, toast string) {
+	target := "/admin/locations"
+	if array, err := s.db.GetLocation(arrayID); err == nil && array.Slug != "" {
+		target = "/" + array.Slug
+	}
+	http.Redirect(w, r, target+"?toast="+url.QueryEscape(toast)+"&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleDrawerCreate(w http.ResponseWriter, r *http.Request) {
+	arrayID, err := strconv.ParseInt(r.FormValue("array_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid array_id", http.StatusBadRequest)
+		return
+	}
+	row, err1 := strconv.ParseInt(r.FormValue("row"), 10, 64)
+	col, err2 := strconv.ParseInt(r.FormValue("col"), 10, 64)
+	if err1 != nil || err2 != nil {
+		http.Error(w, "Invalid drawer position", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		name = fmt.Sprintf("Drawer %c%d", 'A'+rune(row), col+1)
+	}
+	color := r.FormValue("color")
+
+	if _, err := s.db.CreateDrawer(arrayID, row, col, name, color); err != nil {
+		http.Redirect(w, r, "/admin/locations?toast="+url.QueryEscape(err.Error())+"&toast_type=error", http.StatusSeeOther)
+		return
+	}
+
+	s.redirectToArray(w, r, arrayID, "Drawer created successfully")
+}
+
+func (s *Server) handleDrawerEdit(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	drawer, err := s.db.GetLocation(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		name = drawer.Name
+	}
+	color := r.FormValue("color")
+
+	parentID := drawer.ParentID
+	if parentVal := r.FormValue("parent_id"); parentVal != "" {
+		pid, perr := strconv.ParseInt(parentVal, 10, 64)
+		if perr == nil && pid != id {
+			parentID = sql.NullInt64{Int64: pid, Valid: true}
+		}
+	}
+
+	if err := s.db.UpdateDrawer(id, name, color, parentID); err != nil {
+		http.Error(w, "Failed to update drawer: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return to the array the drawer lived in before any reparenting
+	if drawer.ParentID.Valid {
+		s.redirectToArray(w, r, drawer.ParentID.Int64, "Drawer updated successfully")
+		return
+	}
+	http.Redirect(w, r, "/admin/locations?toast=Drawer+updated+successfully&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleDrawerRemove(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	drawer, err := s.db.GetLocation(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	_ = s.db.SoftRemoveLocation(id)
+
+	if drawer.ParentID.Valid {
+		s.redirectToArray(w, r, drawer.ParentID.Int64, "Drawer removed; slot is now empty")
+		return
+	}
+	http.Redirect(w, r, "/admin/locations?toast=Drawer+removed&toast_type=success", http.StatusSeeOther)
+}
+
+func (s *Server) handleDrawerMove(w http.ResponseWriter, r *http.Request) {
+	drawerID, err := strconv.ParseInt(r.FormValue("drawer_id"), 10, 64)
+	row, err1 := strconv.ParseInt(r.FormValue("row"), 10, 64)
+	col, err2 := strconv.ParseInt(r.FormValue("col"), 10, 64)
+	if err != nil || err1 != nil || err2 != nil {
+		http.Error(w, "Invalid drawer_id or position", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.db.MoveDrawer(drawerID, row, col); err != nil {
+		http.Error(w, "Failed to move drawer: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"status":"success","message":"Drawer moved successfully"}`))
 }
 
 // ==========================================
@@ -1337,12 +1491,42 @@ func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
 	var showRemoved bool
 	var allLocations []db.Location
 
+	var drawerGrid [][]DrawerCell
+
 	if isAuth {
 		showRemoved = r.URL.Query().Get("show_removed") == "1"
 
 		childLocs, err = s.db.ListChildLocations(loc.ID, showRemoved)
 		if err != nil {
 			childLocs = []db.Location{}
+		}
+
+		// Container array: build the drawer grid and keep drawers out of the folder list
+		if loc.GridRows > 0 && loc.GridCols > 0 {
+			drawers, derr := s.db.ListDrawers(loc.ID)
+			if derr != nil {
+				drawers = []db.Drawer{}
+			}
+			byCell := make(map[[2]int64]*db.Drawer, len(drawers))
+			for i := range drawers {
+				byCell[[2]int64{drawers[i].Row, drawers[i].Col}] = &drawers[i]
+			}
+			drawerGrid = make([][]DrawerCell, loc.GridRows)
+			for row := int64(0); row < loc.GridRows; row++ {
+				cells := make([]DrawerCell, loc.GridCols)
+				for col := int64(0); col < loc.GridCols; col++ {
+					cells[col] = DrawerCell{Row: row, Col: col, Drawer: byCell[[2]int64{row, col}]}
+				}
+				drawerGrid[row] = cells
+			}
+
+			filtered := childLocs[:0]
+			for _, c := range childLocs {
+				if !c.GridRow.Valid {
+					filtered = append(filtered, c)
+				}
+			}
+			childLocs = filtered
 		}
 
 		items, err = s.db.ListItemsByLocation(loc.ID, showRemoved)
@@ -1383,6 +1567,7 @@ func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
 		Breadcrumbs:     breadcrumbs,
 		Locations:       allLocations,
 		ShowRemoved:     showRemoved,
+		DrawerGrid:      drawerGrid,
 	}
 
 	s.render(w, r, "location_folder.html", data)

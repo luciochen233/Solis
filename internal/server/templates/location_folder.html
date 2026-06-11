@@ -64,6 +64,123 @@
         {{end}}
     {{end}}
 
+    <!-- Container Array Drawer Grid -->
+    {{if and .IsAuthenticated .DrawerGrid}}
+    <div class="directory-section drawer-array-section">
+        <h2 class="section-title">{{T "drawer.section_title"}}</h2>
+        <p class="drawer-array-hint">{{T "drawer.hint"}}</p>
+        <div class="drawer-cabinet-wrapper">
+            <div class="drawer-cabinet" id="drawer-cabinet"
+                 data-array-id="{{.CurrentLocation.ID}}"
+                 style="--drawer-cols: {{.CurrentLocation.GridCols}};">
+                {{range $row := .DrawerGrid}}
+                    {{range $cell := $row}}
+                        {{if $cell.Drawer}}
+                            <div class="drawer-cell has-drawer"
+                                 data-row="{{$cell.Row}}" data-col="{{$cell.Col}}"
+                                 data-drawer-id="{{$cell.Drawer.ID}}"
+                                 data-drawer-name="{{$cell.Drawer.Name}}"
+                                 data-drawer-color="{{$cell.Drawer.Color}}"
+                                 data-drawer-slug="{{$cell.Drawer.Slug}}">
+                                <div class="drawer-box">
+                                    <div class="drawer-cavity"></div>
+                                    <div class="drawer-tray" {{if $cell.Drawer.Color}}style="--drawer-color: {{$cell.Drawer.Color}};"{{end}}>
+                                        <div class="drawer-front">
+                                            <span class="drawer-label">{{$cell.Drawer.Name}}</span>
+                                            <span class="drawer-handle"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="drawer-peek">
+                                    <strong class="drawer-peek-name">{{$cell.Drawer.Name}}</strong>
+                                    <span class="drawer-peek-count">{{$cell.Drawer.ItemCount}} {{T "drawer.items"}}</span>
+                                    {{if $cell.Drawer.ItemNames}}
+                                        <em class="drawer-peek-items">{{$cell.Drawer.ItemNames}}</em>
+                                    {{else}}
+                                        <em class="drawer-peek-items">{{T "drawer.empty_contents"}}</em>
+                                    {{end}}
+                                    <div class="drawer-peek-actions">
+                                        <a href="/{{$cell.Drawer.Slug}}" class="drawer-peek-btn">{{T "drawer.open"}}</a>
+                                        <button type="button" class="drawer-peek-btn" onclick="openDrawerModal(this.closest('.drawer-cell'))">{{T "common.edit"}}</button>
+                                        <form action="/admin/drawers/remove/{{$cell.Drawer.ID}}" method="POST" style="margin:0;" onsubmit="return confirm('{{T "drawer.confirm_remove"}}');">
+                                            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                            <button type="submit" class="drawer-peek-btn danger">{{T "common.delete"}}</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {{else}}
+                            <div class="drawer-cell empty"
+                                 data-row="{{$cell.Row}}" data-col="{{$cell.Col}}"
+                                 role="button" tabindex="0"
+                                 aria-label="{{T "drawer.add"}}"
+                                 onclick="openDrawerModal(this)">
+                                <div class="drawer-box">
+                                    <div class="drawer-tray empty-tray">
+                                        <div class="drawer-front">
+                                            <span class="drawer-add-icon">+</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {{end}}
+                    {{end}}
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Drawer Create / Edit Modal -->
+    <div class="drawer-modal-backdrop" id="drawer-modal" hidden
+         data-title-create="{{T "drawer.new_drawer"}}" data-title-edit="{{T "drawer.edit_drawer"}}">
+        <div class="drawer-modal card" role="dialog" aria-modal="true">
+            <h3 id="drawer-modal-title" style="font-weight: 700; margin-bottom: 1rem;">{{T "drawer.edit_drawer"}}</h3>
+            <form id="drawer-modal-form" method="POST" action="/admin/drawers/new">
+                <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                <input type="hidden" name="array_id" value="{{.CurrentLocation.ID}}">
+                <input type="hidden" name="row" id="drawer-form-row" value="">
+                <input type="hidden" name="col" id="drawer-form-col" value="">
+
+                <div class="form-group">
+                    <label class="form-label" for="drawer-form-name">{{T "drawer.name"}}</label>
+                    <input type="text" id="drawer-form-name" name="name" class="form-control" placeholder="e.g. Resistors A1">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="drawer-form-color">{{T "drawer.color"}}</label>
+                    <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                        <input type="color" id="drawer-form-color" name="color" value="#d97706" style="width: 3rem; height: 2.2rem; padding: 0.15rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg-surface); cursor: pointer;">
+                        <button type="button" class="drawer-swatch" style="background:#d97706;" onclick="setDrawerColor('#d97706')" aria-label="amber"></button>
+                        <button type="button" class="drawer-swatch" style="background:#ef4444;" onclick="setDrawerColor('#ef4444')" aria-label="red"></button>
+                        <button type="button" class="drawer-swatch" style="background:#10b981;" onclick="setDrawerColor('#10b981')" aria-label="green"></button>
+                        <button type="button" class="drawer-swatch" style="background:#3b82f6;" onclick="setDrawerColor('#3b82f6')" aria-label="blue"></button>
+                        <button type="button" class="drawer-swatch" style="background:#8b5cf6;" onclick="setDrawerColor('#8b5cf6')" aria-label="purple"></button>
+                        <button type="button" class="drawer-swatch" style="background:#64748b;" onclick="setDrawerColor('#64748b')" aria-label="slate"></button>
+                    </div>
+                </div>
+
+                <div class="form-group" id="drawer-form-location-group" hidden>
+                    <label class="form-label" for="drawer-form-parent">{{T "drawer.location"}}</label>
+                    <select id="drawer-form-parent" name="parent_id" class="form-control">
+                        <option value="{{.CurrentLocation.ID}}">{{.CurrentLocation.Name}} ({{T "drawer.current_array"}})</option>
+                        {{range .Locations}}
+                            {{if ne .ID $.CurrentLocation.ID}}
+                                <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        {{end}}
+                    </select>
+                    <p style="color: var(--color-text-light); font-size: 0.8rem; margin-top: 0.35rem;">{{T "drawer.location_hint"}}</p>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.25rem;">
+                    <button type="submit" class="btn btn-primary" style="flex-grow: 1;">{{T "common.save"}}</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeDrawerModal()">{{T "common.cancel"}}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {{end}}
+
     <!-- Sub-folders Section -->
     {{if .IsAuthenticated}}
     <div class="directory-section">

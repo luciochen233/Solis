@@ -9,6 +9,11 @@ CREATE TABLE IF NOT EXISTS locations (
     description     TEXT NOT NULL DEFAULT '',
     parent_id       INTEGER REFERENCES locations(id) ON DELETE SET NULL,
     image_path      TEXT NOT NULL DEFAULT '',
+    grid_rows       INTEGER NOT NULL DEFAULT 0,     -- Container array height (0 = not a container array)
+    grid_cols       INTEGER NOT NULL DEFAULT 0,     -- Container array width (0 = not a container array)
+    grid_row        INTEGER,                        -- Drawer position (row) within parent container array
+    grid_col        INTEGER,                        -- Drawer position (col) within parent container array
+    color           TEXT NOT NULL DEFAULT '',       -- Drawer color code (hex)
     lifecycle_state TEXT NOT NULL DEFAULT 'active',
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))

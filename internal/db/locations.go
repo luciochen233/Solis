@@ -17,8 +17,26 @@ type Location struct {
 	ParentName     sql.NullString // Resolved parent location name
 	ImagePath      string
 	LifecycleState string // 'active', 'archived', 'removed'
+	GridRows       int64  // Container array height (0 = not a container array)
+	GridCols       int64  // Container array width (0 = not a container array)
+	GridRow        sql.NullInt64
+	GridCol        sql.NullInt64
+	Color          string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// Drawer is a child location positioned inside a parent container array,
+// enriched with a summary of its contents.
+type Drawer struct {
+	ID        int64
+	Name      string
+	Slug      string
+	Color     string
+	Row       int64
+	Col       int64
+	ItemCount int64
+	ItemNames string // comma-separated preview of item names
 }
 
 func (d *DB) CreateLocation(name, description string, parentID sql.NullInt64, imagePath string) (*Location, error) {
@@ -71,7 +89,7 @@ func (d *DB) CreateLocation(name, description string, parentID sql.NullInt64, im
 
 func (d *DB) GetLocation(id int64) (*Location, error) {
 	row := d.Conn.QueryRow(`
-		SELECT l.id, l.name, l.slug, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.created_at, l.updated_at 
+		SELECT l.id, l.name, l.slug, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.grid_rows, l.grid_cols, l.grid_row, l.grid_col, l.color, l.created_at, l.updated_at
 		FROM locations l 
 		LEFT JOIN locations p ON l.parent_id = p.id 
 		WHERE l.id = ?`,
@@ -82,7 +100,7 @@ func (d *DB) GetLocation(id int64) (*Location, error) {
 
 func (d *DB) GetLocationBySlug(slug string) (*Location, error) {
 	row := d.Conn.QueryRow(`
-		SELECT l.id, l.name, l.slug, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.created_at, l.updated_at 
+		SELECT l.id, l.name, l.slug, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.grid_rows, l.grid_cols, l.grid_row, l.grid_col, l.color, l.created_at, l.updated_at
 		FROM locations l 
 		LEFT JOIN locations p ON l.parent_id = p.id 
 		WHERE l.slug = ?`,
@@ -103,7 +121,8 @@ func (d *DB) UpdateLocation(id int64, name, description string, parentID sql.Nul
 	defer tx.Rollback()
 
 	var oldName string
-	err = tx.QueryRow("SELECT name FROM locations WHERE id = ?", id).Scan(&oldName)
+	var oldParentID sql.NullInt64
+	err = tx.QueryRow("SELECT name, parent_id FROM locations WHERE id = ?", id).Scan(&oldName, &oldParentID)
 	if err != nil {
 		return err
 	}
@@ -130,6 +149,13 @@ func (d *DB) UpdateLocation(id int64, name, description string, parentID sql.Nul
 	)
 	if err != nil {
 		return err
+	}
+
+	// Reparenting pulls a drawer out of its container array grid, freeing the slot
+	if oldParentID != parentID {
+		if _, err = tx.Exec("UPDATE locations SET grid_row = NULL, grid_col = NULL WHERE id = ?", id); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
@@ -171,7 +197,8 @@ func (d *DB) SoftRemoveLocation(id int64) error {
 	if id == 1 {
 		return fmt.Errorf("cannot remove the Default Room")
 	}
-	_, err := d.Conn.Exec("UPDATE locations SET lifecycle_state = 'removed', updated_at = datetime('now') WHERE id = ?", id)
+	// Clearing the grid position leaves an empty drawer slot behind in the parent container array
+	_, err := d.Conn.Exec("UPDATE locations SET lifecycle_state = 'removed', grid_row = NULL, grid_col = NULL, updated_at = datetime('now') WHERE id = ?", id)
 	return err
 }
 
@@ -179,7 +206,7 @@ func (d *DB) ArchiveLocation(id int64) error {
 	if id == 1 {
 		return fmt.Errorf("cannot archive the Default Room")
 	}
-	_, err := d.Conn.Exec("UPDATE locations SET lifecycle_state = 'archived', updated_at = datetime('now') WHERE id = ?", id)
+	_, err := d.Conn.Exec("UPDATE locations SET lifecycle_state = 'archived', grid_row = NULL, grid_col = NULL, updated_at = datetime('now') WHERE id = ?", id)
 	return err
 }
 
@@ -190,7 +217,7 @@ func (d *DB) RestoreLocation(id int64) error {
 
 func (d *DB) ListLocations(showRemoved bool) ([]Location, error) {
 	query := `
-		SELECT l.id, l.name, l.slug, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.created_at, l.updated_at 
+		SELECT l.id, l.name, l.slug, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.grid_rows, l.grid_cols, l.grid_row, l.grid_col, l.color, l.created_at, l.updated_at
 		FROM locations l 
 		LEFT JOIN locations p ON l.parent_id = p.id`
 	if !showRemoved {
@@ -210,7 +237,7 @@ func (d *DB) ListLocations(showRemoved bool) ([]Location, error) {
 		var parentID sql.NullInt64
 		var parentName sql.NullString
 		var created, updated string
-		if err := rows.Scan(&l.ID, &l.Name, &l.Slug, &l.Description, &parentID, &parentName, &l.ImagePath, &l.LifecycleState, &created, &updated); err != nil {
+		if err := rows.Scan(&l.ID, &l.Name, &l.Slug, &l.Description, &parentID, &parentName, &l.ImagePath, &l.LifecycleState, &l.GridRows, &l.GridCols, &l.GridRow, &l.GridCol, &l.Color, &created, &updated); err != nil {
 			return nil, err
 		}
 		l.ParentID = parentID
@@ -224,7 +251,7 @@ func (d *DB) ListLocations(showRemoved bool) ([]Location, error) {
 
 func (d *DB) ListChildLocations(parentID int64, showRemoved bool) ([]Location, error) {
 	query := `
-		SELECT l.id, l.name, l.slug, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.created_at, l.updated_at 
+		SELECT l.id, l.name, l.slug, l.description, l.parent_id, p.name AS parent_name, l.image_path, l.lifecycle_state, l.grid_rows, l.grid_cols, l.grid_row, l.grid_col, l.color, l.created_at, l.updated_at
 		FROM locations l 
 		LEFT JOIN locations p ON l.parent_id = p.id
 		WHERE l.parent_id = ?`
@@ -245,7 +272,7 @@ func (d *DB) ListChildLocations(parentID int64, showRemoved bool) ([]Location, e
 		var pID sql.NullInt64
 		var pName sql.NullString
 		var created, updated string
-		if err := rows.Scan(&l.ID, &l.Name, &l.Slug, &l.Description, &pID, &pName, &l.ImagePath, &l.LifecycleState, &created, &updated); err != nil {
+		if err := rows.Scan(&l.ID, &l.Name, &l.Slug, &l.Description, &pID, &pName, &l.ImagePath, &l.LifecycleState, &l.GridRows, &l.GridCols, &l.GridRow, &l.GridCol, &l.Color, &created, &updated); err != nil {
 			return nil, err
 		}
 		l.ParentID = pID
@@ -264,7 +291,7 @@ func scanLocation(row interface {
 	var parentID sql.NullInt64
 	var parentName sql.NullString
 	var created, updated string
-	if err := row.Scan(&l.ID, &l.Name, &l.Slug, &l.Description, &parentID, &parentName, &l.ImagePath, &l.LifecycleState, &created, &updated); err != nil {
+	if err := row.Scan(&l.ID, &l.Name, &l.Slug, &l.Description, &parentID, &parentName, &l.ImagePath, &l.LifecycleState, &l.GridRows, &l.GridCols, &l.GridRow, &l.GridCol, &l.Color, &created, &updated); err != nil {
 		return nil, err
 	}
 	l.ParentID = parentID
@@ -279,7 +306,8 @@ func (d *DB) MoveLocationParent(locID, newParentID int64) error {
 	if newParentID > 0 {
 		pID = sql.NullInt64{Int64: newParentID, Valid: true}
 	}
-	_, err := d.Conn.Exec("UPDATE locations SET parent_id = ?, updated_at = datetime('now') WHERE id = ?", pID, locID)
+	// Reparenting pulls a drawer out of its container array grid, freeing the slot
+	_, err := d.Conn.Exec("UPDATE locations SET parent_id = ?, grid_row = NULL, grid_col = NULL, updated_at = datetime('now') WHERE id = ?", pID, locID)
 	return err
 }
 

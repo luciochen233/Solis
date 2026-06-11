@@ -144,6 +144,12 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /admin/locations/restore/{id}", s.requireAuth(s.requireCSRF(s.handleLocationRestore)))
 	mux.HandleFunc("POST /admin/locations/permanent-delete/{id}", s.requireAuth(s.requireCSRF(s.handleLocationPermanentDelete)))
 
+	// 7b. Container array drawer management
+	mux.HandleFunc("POST /admin/drawers/new", s.requireAuth(s.requireCSRF(s.handleDrawerCreate)))
+	mux.HandleFunc("POST /admin/drawers/edit/{id}", s.requireAuth(s.requireCSRF(s.handleDrawerEdit)))
+	mux.HandleFunc("POST /admin/drawers/remove/{id}", s.requireAuth(s.requireCSRF(s.handleDrawerRemove)))
+	mux.HandleFunc("POST /admin/drawers/move", s.requireAuth(s.requireCSRF(s.handleDrawerMove)))
+
 	// 8. Admin tags management
 	mux.HandleFunc("GET /admin/tags", s.requireAuth(s.handleAdminTags))
 	mux.HandleFunc("POST /admin/tags/new", s.requireAuth(s.requireCSRF(s.handleTagCreate)))

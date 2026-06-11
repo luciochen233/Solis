@@ -113,6 +113,42 @@ func migrate(conn *sql.DB) error {
 		}
 	}
 
+	// Ensure container array / drawer columns exist in locations (for existing databases)
+	{
+		rows, err := conn.Query("PRAGMA table_info(locations)")
+		if err != nil {
+			return fmt.Errorf("pragma table_info for locations: %w", err)
+		}
+		existing := map[string]bool{}
+		for rows.Next() {
+			var cid int
+			var name, ctype string
+			var notnull, pk int
+			var dfltValue interface{}
+			if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+				rows.Close()
+				return fmt.Errorf("scanning table_info for locations: %w", err)
+			}
+			existing[name] = true
+		}
+		rows.Close()
+
+		gridColumns := map[string]string{
+			"grid_rows": "INTEGER NOT NULL DEFAULT 0",
+			"grid_cols": "INTEGER NOT NULL DEFAULT 0",
+			"grid_row":  "INTEGER",
+			"grid_col":  "INTEGER",
+			"color":     "TEXT NOT NULL DEFAULT ''",
+		}
+		for _, col := range []string{"grid_rows", "grid_cols", "grid_row", "grid_col", "color"} {
+			if !existing[col] {
+				if _, err := conn.Exec(fmt.Sprintf("ALTER TABLE locations ADD COLUMN %s %s", col, gridColumns[col])); err != nil {
+					return fmt.Errorf("adding %s column to locations: %w", col, err)
+				}
+			}
+		}
+	}
+
 	// Populate empty location slugs
 	{
 		rows, err := conn.Query("SELECT id, name FROM locations WHERE slug = '' OR slug IS NULL")

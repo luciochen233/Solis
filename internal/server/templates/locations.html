@@ -145,9 +145,25 @@
                         </select>
                     </div>
 
-                    <div class="form-group" style="margin-bottom: 1.75rem;">
+                    <div class="form-group">
                         <label for="description" class="form-label">{{T "common.description"}}</label>
                         <textarea id="description" name="description" class="form-control" rows="3" placeholder="e.g. Red plastic storage box on shelf 2">{{.EditingLocation.Description}}</textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1.75rem;">
+                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 500; cursor: pointer;">
+                            <input type="checkbox" name="is_array" value="1" {{if gt .EditingLocation.GridRows 0}}checked{{end}} onchange="toggleGridFields(this)" style="accent-color: var(--color-brand-primary);">
+                            {{T "locations.container_array"}}
+                        </label>
+                        <div class="grid-size-fields" {{if not (gt .EditingLocation.GridRows 0)}}hidden{{end}} style="margin-top: 0.6rem;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="number" name="grid_rows" class="form-control" min="1" max="20" value="{{if gt .EditingLocation.GridRows 0}}{{.EditingLocation.GridRows}}{{else}}4{{end}}" style="width: 5.5rem;" aria-label="{{T "locations.grid_rows"}}">
+                                <span style="color: var(--color-text-muted);">&times;</span>
+                                <input type="number" name="grid_cols" class="form-control" min="1" max="20" value="{{if gt .EditingLocation.GridCols 0}}{{.EditingLocation.GridCols}}{{else}}4{{end}}" style="width: 5.5rem;" aria-label="{{T "locations.grid_cols"}}">
+                                <span style="color: var(--color-text-muted); font-size: 0.85rem;">{{T "locations.grid_dims"}}</span>
+                            </div>
+                            <p style="color: var(--color-text-light); font-size: 0.8rem; margin-top: 0.4rem;">{{T "locations.container_array_hint"}}</p>
+                        </div>
                     </div>
 
                     <div style="display: flex; gap: 0.5rem;">
@@ -175,9 +191,25 @@
                         </select>
                     </div>
 
-                    <div class="form-group" style="margin-bottom: 1.75rem;">
+                    <div class="form-group">
                         <label for="description" class="form-label">{{T "common.description"}}</label>
                         <textarea id="description" name="description" class="form-control" rows="3" placeholder="e.g. First floor living room cupboard"></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 1.75rem;">
+                        <label style="display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 500; cursor: pointer;">
+                            <input type="checkbox" name="is_array" value="1" onchange="toggleGridFields(this)" style="accent-color: var(--color-brand-primary);">
+                            {{T "locations.container_array"}}
+                        </label>
+                        <div class="grid-size-fields" hidden style="margin-top: 0.6rem;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="number" name="grid_rows" class="form-control" min="1" max="20" value="4" style="width: 5.5rem;" aria-label="{{T "locations.grid_rows"}}">
+                                <span style="color: var(--color-text-muted);">&times;</span>
+                                <input type="number" name="grid_cols" class="form-control" min="1" max="20" value="4" style="width: 5.5rem;" aria-label="{{T "locations.grid_cols"}}">
+                                <span style="color: var(--color-text-muted); font-size: 0.85rem;">{{T "locations.grid_dims"}}</span>
+                            </div>
+                            <p style="color: var(--color-text-light); font-size: 0.8rem; margin-top: 0.4rem;">{{T "locations.container_array_hint"}}</p>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary" style="width: 100%;">{{T "locations.add_location"}}</button>
@@ -186,4 +218,11 @@
         </div>
     </div>
 </div>
+
+<script>
+    function toggleGridFields(checkbox) {
+        const fields = checkbox.closest(".form-group").querySelector(".grid-size-fields");
+        if (fields) fields.hidden = !checkbox.checked;
+    }
+</script>
 {{end}}
