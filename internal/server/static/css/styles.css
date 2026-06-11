@@ -1706,6 +1706,44 @@ tr:last-child .actions-dropdown-menu {
     border-color: #b91c1c;
 }
 
+/* 404 Not Found page */
+.notfound-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 60vh;
+    padding: 2rem 1rem;
+}
+
+.notfound-code {
+    font-size: 6rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--color-brand-primary);
+    text-shadow: 0 4px 0 var(--color-brand-light);
+    margin-bottom: 1rem;
+}
+
+.notfound-heading {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.notfound-message {
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+    max-width: 28rem;
+}
+
+.notfound-countdown {
+    color: var(--color-text-light);
+    font-size: 0.85rem;
+    margin-top: 1rem;
+}
+
 /* Drawer modal */
 .drawer-modal-backdrop[hidden] {
     display: none !important;

@@ -109,6 +109,7 @@ func initTemplates(translator *i18n.Translator) {
 		"shortener.html",
 		"print_labels.html",
 		"location_folder.html",
+		"404.html",
 	}
 
 	for _, page := range layoutPages {

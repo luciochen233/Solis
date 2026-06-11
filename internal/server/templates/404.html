@@ -1,0 +1,26 @@
+{{define "title"}}{{T "notfound.title"}}{{end}}
+
+{{define "content"}}
+<div class="notfound-container">
+    <div class="notfound-code">404</div>
+    <h1 class="notfound-heading">{{T "notfound.heading"}}</h1>
+    <p class="notfound-message">{{T "notfound.message"}}</p>
+    <a href="/" class="btn btn-primary">{{T "notfound.go_home"}}</a>
+    <p class="notfound-countdown">{{T "notfound.redirecting"}} <span id="notfound-seconds">8</span>s</p>
+</div>
+
+<script>
+    (function () {
+        let seconds = 8;
+        const el = document.getElementById("notfound-seconds");
+        const timer = setInterval(() => {
+            seconds--;
+            if (el) el.textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(timer);
+                window.location.href = "/";
+            }
+        }, 1000);
+    })();
+</script>
+{{end}}

@@ -136,6 +136,7 @@ func (s *Server) Start() error {
 
 	// 7. Admin locations management
 	mux.HandleFunc("GET /admin/locations", s.requireAuth(s.handleAdminLocations))
+	mux.HandleFunc("GET /admin/locations/edit/{id}", s.requireAuth(s.handleLocationEditPage))
 	mux.HandleFunc("POST /admin/locations/new", s.requireAuth(s.requireCSRF(s.handleLocationCreate)))
 	mux.HandleFunc("POST /admin/locations/edit/{id}", s.requireAuth(s.requireCSRF(s.handleLocationEdit)))
 	mux.HandleFunc("POST /admin/locations/delete/{id}", s.requireAuth(s.requireCSRF(s.handleLocationRemove)))

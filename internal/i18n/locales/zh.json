@@ -185,6 +185,12 @@
   "drawer.location_hint": "选择其他位置会将抽屉移出此阵列，并留下一个空格子。",
   "drawer.confirm_remove": "移除此抽屉？其格子将保持为空。可在位置页面恢复该抽屉。",
 
+  "notfound.title": "页面未找到",
+  "notfound.heading": "页面未找到",
+  "notfound.message": "您访问的页面不存在或已被移动。",
+  "notfound.go_home": "返回首页",
+  "notfound.redirecting": "即将返回首页，",
+
   "folder.home": "首页",
   "folder.show_removed": "显示已移除的项目",
   "folder.edit_location": "编辑位置",

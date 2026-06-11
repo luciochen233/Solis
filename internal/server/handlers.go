@@ -73,7 +73,7 @@ type DrawerCell struct {
 func (s *Server) handleShortRedirect(w http.ResponseWriter, r *http.Request) {
 	slugVal := r.PathValue("slug")
 	if slugVal == "" {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 	slugVal = strings.ToLower(slugVal)
@@ -82,7 +82,7 @@ func (s *Server) handleShortRedirect(w http.ResponseWriter, r *http.Request) {
 	link, err := s.db.GetLinkBySlug(slugVal)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
+			s.render404(w, r)
 			return
 		}
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -514,13 +514,13 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleItemEdit(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
 	item, err := s.db.GetItem(id)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -545,13 +545,13 @@ func (s *Server) handleItemEdit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleItemSave(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
 	item, err := s.db.GetItem(id)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -669,7 +669,7 @@ func (s *Server) handleItemSave(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleItemRemove(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -680,7 +680,7 @@ func (s *Server) handleItemRemove(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleItemArchive(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -691,7 +691,7 @@ func (s *Server) handleItemArchive(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleItemRestore(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -702,7 +702,7 @@ func (s *Server) handleItemRestore(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleItemPermanentDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -787,10 +787,22 @@ func parseGridSize(r *http.Request) (int64, int64) {
 	return rows, cols
 }
 
+// handleLocationEditPage serves the GET links used around the app (e.g. the
+// folder view's "Edit Location" button) by opening the edit form on the
+// Locations page.
+func (s *Server) handleLocationEditPage(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		s.render404(w, r)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations?edit="+strconv.FormatInt(id, 10), http.StatusSeeOther)
+}
+
 func (s *Server) handleLocationEdit(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -817,7 +829,7 @@ func (s *Server) handleLocationEdit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLocationRemove(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -828,7 +840,7 @@ func (s *Server) handleLocationRemove(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLocationArchive(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -839,7 +851,7 @@ func (s *Server) handleLocationArchive(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLocationRestore(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -850,7 +862,7 @@ func (s *Server) handleLocationRestore(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLocationPermanentDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -901,13 +913,13 @@ func (s *Server) handleDrawerCreate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDrawerEdit(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
 	drawer, err := s.db.GetLocation(id)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -941,13 +953,13 @@ func (s *Server) handleDrawerEdit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDrawerRemove(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
 	drawer, err := s.db.GetLocation(id)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1024,7 +1036,7 @@ func (s *Server) handleTagCreate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTagEdit(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1039,7 +1051,7 @@ func (s *Server) handleTagEdit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTagRemove(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1050,7 +1062,7 @@ func (s *Server) handleTagRemove(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTagArchive(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1061,7 +1073,7 @@ func (s *Server) handleTagArchive(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTagRestore(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1072,7 +1084,7 @@ func (s *Server) handleTagRestore(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTagPermanentDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1169,7 +1181,7 @@ func (s *Server) handleLinkCreate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLinkSave(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1202,7 +1214,7 @@ func (s *Server) handleLinkSave(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLinkRemove(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1213,7 +1225,7 @@ func (s *Server) handleLinkRemove(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLinkArchive(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1224,7 +1236,7 @@ func (s *Server) handleLinkArchive(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLinkRestore(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1235,7 +1247,7 @@ func (s *Server) handleLinkRestore(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLinkPermanentDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
@@ -1402,6 +1414,15 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 	}
 }
 
+// render404 serves the styled 404 page that links (and auto-redirects) back home.
+func (s *Server) render404(w http.ResponseWriter, r *http.Request) {
+	csrf := s.csrfToken(w, r) // sets the CSRF cookie, so it must run before WriteHeader
+	w.WriteHeader(http.StatusNotFound)
+	s.render(w, r, "404.html", PageData{
+		CSRFToken: csrf,
+	})
+}
+
 // syncItemShortlink automatically synchronizes the shortlink URL target as /{location_slug}/{item_slug}
 func (s *Server) syncItemShortlink(itemID int64, locID int64) {
 	var locSlug string
@@ -1461,13 +1482,13 @@ func (s *Server) handlePublicFallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.NotFound(w, r)
+	s.render404(w, r)
 }
 
 func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
 	slugVal := r.PathValue("location_slug")
 	if slugVal == "" {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 	slugVal = strings.ToLower(slugVal)
@@ -1475,7 +1496,7 @@ func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
 	loc, err := s.db.GetLocationBySlug(slugVal)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
+			s.render404(w, r)
 			return
 		}
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -1580,7 +1601,7 @@ func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
 	link, err := s.db.GetLinkBySlug(itemSlug)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			http.NotFound(w, r)
+			s.render404(w, r)
 			return
 		}
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -1588,13 +1609,13 @@ func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !link.ItemID.Valid {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
 	item, err := s.db.GetItem(link.ItemID.Int64)
 	if err != nil {
-		http.NotFound(w, r)
+		s.render404(w, r)
 		return
 	}
 
