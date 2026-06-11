@@ -21,9 +21,31 @@ document.addEventListener("DOMContentLoaded", () => {
     // 5. Mobile sidebar drawer interactions
     initMobileSidebar();
 
-    // 6. Container array drawer grid (3D view)
+    // 6. Sorting mode (drag rearranging) toggle state
+    initSortingMode();
+
+    // 7. Container array drawer grid (3D view)
     initDrawerArray();
 });
+
+// Sorting mode gates all drag-to-rearrange interactions; persisted so it
+// survives the page reloads triggered after each successful move.
+function sortingModeEnabled() {
+    return document.body.classList.contains("sorting-mode");
+}
+
+function initSortingMode() {
+    let enabled = false;
+    try { enabled = localStorage.getItem("solisSortingMode") === "1"; } catch (e) { /* private mode */ }
+    document.body.classList.toggle("sorting-mode", enabled);
+    document.querySelectorAll(".sorting-mode-toggle").forEach(cb => { cb.checked = enabled; });
+}
+
+function toggleSortingMode(checkbox) {
+    document.body.classList.toggle("sorting-mode", checkbox.checked);
+    document.querySelectorAll(".sorting-mode-toggle").forEach(cb => { cb.checked = checkbox.checked; });
+    try { localStorage.setItem("solisSortingMode", checkbox.checked ? "1" : "0"); } catch (e) { /* private mode */ }
+}
 
 // Mobile off-canvas sidebar drawer
 function toggleSidebar() {
@@ -174,6 +196,11 @@ function initDragAndDrop() {
 
     draggables.forEach(draggable => {
         draggable.addEventListener("dragstart", (e) => {
+            // Elements marked sort-gated only drag while sorting mode is on
+            if (draggable.classList.contains("sort-gated") && !sortingModeEnabled()) {
+                e.preventDefault();
+                return;
+            }
             draggedElement = draggable;
             draggable.classList.add("dragging");
             
@@ -397,6 +424,11 @@ function initDrawerArray() {
         cell.classList.add("drag-source");
         hidePeek();
 
+        // Suppress text selection for the duration of the drag
+        document.body.classList.add("drag-no-select");
+        const selection = window.getSelection();
+        if (selection) selection.removeAllRanges();
+
         const front = cell.querySelector(".drawer-front");
         const rect = front.getBoundingClientRect();
         const ghost = front.cloneNode(true);
@@ -442,6 +474,7 @@ function initDrawerArray() {
         dragState.suppressClick = true;
         setTimeout(() => { dragState.suppressClick = false; }, 50);
 
+        document.body.classList.remove("drag-no-select");
         cell.classList.remove("drag-source");
         if (ghost) ghost.remove();
         if (target) target.classList.remove("drop-target");
@@ -480,14 +513,17 @@ function initDrawerArray() {
     cells.forEach(cell => {
         const tray = cell.querySelector(".drawer-tray");
 
-        // Mouse: drag starts after a small movement threshold; plain click navigates
+        // Mouse: in sorting mode, drag starts after a small movement threshold;
+        // plain click navigates either way
         tray.addEventListener("mousedown", (e) => {
             if (e.button !== 0) return;
+            // Avoid native text selection from a press-and-move on the drawer
+            e.preventDefault();
             const startX = e.clientX, startY = e.clientY;
             let started = false;
 
             const onMove = (ev) => {
-                if (!started && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 6) {
+                if (!started && sortingModeEnabled() && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 6) {
                     started = true;
                     startDrag(cell, ev.clientX, ev.clientY);
                 }
@@ -502,13 +538,14 @@ function initDrawerArray() {
             document.addEventListener("mouseup", onUp);
         });
 
-        // Touch: long-press (450ms) starts drag; quick tap toggles the peek
+        // Touch: in sorting mode, long-press (450ms) starts drag; quick tap
+        // toggles the peek either way
         tray.addEventListener("touchstart", (e) => {
             const touch = e.touches[0];
             const startX = touch.clientX, startY = touch.clientY;
             let pressTimer = setTimeout(() => {
                 pressTimer = null;
-                startDrag(cell, startX, startY);
+                if (sortingModeEnabled()) startDrag(cell, startX, startY);
             }, 450);
 
             const onTouchMove = (ev) => {

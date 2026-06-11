@@ -169,9 +169,12 @@
   "locations.grid_cols": "Columns",
   "locations.grid_dims": "rows × columns (max 20×20)",
   "locations.container_array_hint": "Turns this location into a drawer cabinet. Open it from the folder view to add, color, and rearrange drawers.",
+  "locations.sorting_mode": "Sorting mode",
+  "locations.move_to_root": "Drop a location here to move it to the top level",
+  "locations.toggle_children": "Show or hide sub-locations",
 
   "drawer.section_title": "Drawers",
-  "drawer.hint": "Hover or tap a drawer to peek inside. Drag (or touch and hold) a drawer to swap it with another slot. Click an empty slot to add a drawer.",
+  "drawer.hint": "Hover or tap a drawer to peek inside. Click an empty slot to add a drawer. Enable sorting mode to drag (or touch and hold) drawers and swap them around.",
   "drawer.items": "item(s)",
   "drawer.empty_contents": "This drawer is empty.",
   "drawer.open": "Open",

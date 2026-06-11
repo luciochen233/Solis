@@ -169,9 +169,12 @@
   "locations.grid_cols": "列数",
   "locations.grid_dims": "行 × 列（最大 20×20）",
   "locations.container_array_hint": "将此位置变为抽屉柜。在文件夹视图中打开它即可添加、着色和重新排列抽屉。",
+  "locations.sorting_mode": "排序模式",
+  "locations.move_to_root": "将位置拖放到此处可移至顶层",
+  "locations.toggle_children": "显示或隐藏子位置",
 
   "drawer.section_title": "抽屉",
-  "drawer.hint": "悬停或轻触抽屉可预览内容。拖动（或长按）抽屉可与其他格子交换位置。点击空格子可添加抽屉。",
+  "drawer.hint": "悬停或轻触抽屉可预览内容。点击空格子可添加抽屉。启用排序模式后，可拖动（或长按）抽屉交换位置。",
   "drawer.items": "件物品",
   "drawer.empty_contents": "此抽屉是空的。",
   "drawer.open": "打开",

@@ -8,7 +8,7 @@
     </div>
 </div>
 
-<form action="/admin/locations" method="GET" class="filter-bar" style="margin-bottom: 1.5rem; justify-content: flex-end;">
+<form action="/admin/locations" method="GET" class="filter-bar" style="margin-bottom: 1.5rem; justify-content: flex-end; gap: 1.25rem;">
     {{if .EditingLocation}}
         <input type="hidden" name="edit" value="{{.EditingLocation.ID}}">
     {{end}}
@@ -16,7 +16,18 @@
         <input type="checkbox" name="show_removed" value="1" {{if .ShowRemoved}}checked{{end}} onchange="this.form.submit()">
         {{T "locations.show_removed"}}
     </label>
+    <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; white-space: nowrap;">
+        <input type="checkbox" class="sorting-mode-toggle" onchange="toggleSortingMode(this)" style="accent-color: var(--color-brand-primary);">
+        {{T "locations.sorting_mode"}}
+    </label>
 </form>
+
+<div class="sort-root-dropzone dropzone" data-location-id="0" data-type="location">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px;">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19.5v-15m0 0l-6.75 6.75M12 4.5l6.75 6.75" />
+    </svg>
+    <span>{{T "locations.move_to_root"}}</span>
+</div>
 
 
 <div class="detail-grid">
@@ -34,14 +45,34 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {{if .Locations}}
-                            {{range .Locations}}
-                                <tr class="{{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}">
+                        {{if .LocationTree}}
+                            {{range .LocationTree}}
+                                <tr class="loc-row sort-gated dropzone {{if eq .LifecycleState "removed"}}lifecycle-removed{{else if eq .LifecycleState "archived"}}lifecycle-archived{{end}}"
+                                    data-location-id="{{.ID}}"
+                                    data-type="location"
+                                    data-tree-parent="{{if .ParentID.Valid}}{{.ParentID.Int64}}{{else}}0{{end}}"
+                                    data-depth="{{.Depth}}"
+                                    {{if ne .ID 1}}draggable="true"{{end}}
+                                    {{if gt .Depth 0}}style="display: none;"{{end}}>
                                     <td data-label="{{T "locations.col.name"}}" style="font-weight: 600;">
-                                        <a href="/{{.Slug}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.Name}}</a>
-                                        {{if eq .LifecycleState "archived"}}
-                                            <span class="status-pill archived" style="margin-left: 0.5rem; font-size: 0.7rem; padding: 0.1rem 0.4rem;">{{T "common.archived"}}</span>
-                                        {{end}}
+                                        <div class="loc-name-cell" style="padding-left: {{.Indent}}px;">
+                                            {{if .HasChildren}}
+                                                <button type="button" class="loc-caret" onclick="toggleLocChildren(this, '{{.ID}}')" aria-expanded="false" aria-label="{{T "locations.toggle_children"}}">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 13px; height: 13px;">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                                    </svg>
+                                                </button>
+                                            {{else}}
+                                                <span class="loc-caret-spacer"></span>
+                                            {{end}}
+                                            <a href="/{{.Slug}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.Name}}</a>
+                                            {{if gt .GridRows 0}}
+                                                <span class="loc-grid-badge">{{.GridRows}}&times;{{.GridCols}}</span>
+                                            {{end}}
+                                            {{if eq .LifecycleState "archived"}}
+                                                <span class="status-pill archived" style="margin-left: 0.5rem; font-size: 0.7rem; padding: 0.1rem 0.4rem;">{{T "common.archived"}}</span>
+                                            {{end}}
+                                        </div>
                                     </td>
                                     <td data-label="{{T "locations.col.parent"}}">
                                         {{if .ParentName.Valid}}
@@ -223,6 +254,28 @@
     function toggleGridFields(checkbox) {
         const fields = checkbox.closest(".form-group").querySelector(".grid-size-fields");
         if (fields) fields.hidden = !checkbox.checked;
+    }
+
+    function toggleLocChildren(btn, id) {
+        const expanded = btn.classList.toggle("expanded");
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        document.querySelectorAll('.loc-row[data-tree-parent="' + id + '"]').forEach(row => {
+            if (expanded) {
+                row.style.display = "";
+            } else {
+                collapseLocRow(row);
+            }
+        });
+    }
+
+    function collapseLocRow(row) {
+        row.style.display = "none";
+        const caret = row.querySelector(".loc-caret");
+        if (caret) {
+            caret.classList.remove("expanded");
+            caret.setAttribute("aria-expanded", "false");
+        }
+        document.querySelectorAll('.loc-row[data-tree-parent="' + row.dataset.locationId + '"]').forEach(collapseLocRow);
     }
 </script>
 {{end}}

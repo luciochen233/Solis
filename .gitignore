@@ -18,3 +18,4 @@ Thumbs.db
 
 # Config files (if you want to ignore actual config but keep example)
 config.toml
+config-preview.toml

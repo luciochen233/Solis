@@ -1498,7 +1498,7 @@ tr:last-child .actions-dropdown-menu {
     inset: 0;
     transform-style: preserve-3d;
     transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-    cursor: grab;
+    cursor: pointer;
     touch-action: pan-y;
 }
 
@@ -1704,6 +1704,107 @@ tr:last-child .actions-dropdown-menu {
 
 .drawer-peek-btn.danger:hover {
     border-color: #b91c1c;
+}
+
+/* ==========================================
+   Locations tree table & sorting mode
+   ========================================== */
+
+.loc-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.loc-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 0;
+    flex-shrink: 0;
+    transition: transform 0.18s ease, background-color 0.15s ease;
+}
+
+.loc-caret:hover {
+    background: var(--color-bg-base);
+    color: var(--color-brand-primary);
+}
+
+.loc-caret.expanded {
+    transform: rotate(90deg);
+}
+
+.loc-caret-spacer {
+    display: inline-block;
+    width: 1.4rem;
+    flex-shrink: 0;
+}
+
+.loc-grid-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--color-brand-primary);
+    background: var(--color-brand-light);
+    border: 1px solid var(--color-border-warm);
+    border-radius: 4px;
+    padding: 0.05rem 0.3rem;
+    margin-left: 0.35rem;
+    white-space: nowrap;
+}
+
+/* Root drop strip, shown only while sorting */
+.sort-root-dropzone {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border: 2px dashed var(--color-border-warm);
+    border-radius: 10px;
+    color: var(--color-brand-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: var(--color-bg-surface);
+}
+
+body.sorting-mode .sort-root-dropzone {
+    display: flex;
+}
+
+body.sorting-mode .loc-row[draggable="true"] {
+    cursor: grab;
+}
+
+body.sorting-mode .drawer-tray {
+    cursor: grab;
+}
+
+body.sorting-mode .drawer-cabinet {
+    outline: 2px dashed var(--color-brand-accent);
+    outline-offset: 4px;
+}
+
+/* Keep drags from selecting text */
+.folder-card[draggable="true"],
+.item-card[draggable="true"],
+.loc-row[draggable="true"],
+.drawer-tray {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+body.drag-no-select,
+body.drag-no-select * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
 
 /* 404 Not Found page */

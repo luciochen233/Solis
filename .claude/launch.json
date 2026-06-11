@@ -4,8 +4,8 @@
     {
       "name": "solis",
       "runtimeExecutable": "go",
-      "runtimeArgs": ["run", "."],
-      "port": 8889
+      "runtimeArgs": ["run", ".", "-c", "config-preview.toml"],
+      "port": 8899
     }
   ]
 }

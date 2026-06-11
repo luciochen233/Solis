@@ -56,6 +56,7 @@ type PageData struct {
 	Breadcrumbs      []db.Location
 	ChildLocations   []db.Location
 	DrawerGrid       [][]DrawerCell
+	LocationTree     []LocationTreeRow
 }
 
 // DrawerCell is one slot of a container array grid; Drawer is nil for empty slots.
@@ -63,6 +64,54 @@ type DrawerCell struct {
 	Row    int64
 	Col    int64
 	Drawer *db.Drawer
+}
+
+// LocationTreeRow is a location flattened from the hierarchy in pre-order,
+// carrying its nesting depth for the collapsible Locations table.
+type LocationTreeRow struct {
+	db.Location
+	Depth       int
+	Indent      int // indentation in px for the name cell
+	HasChildren bool
+}
+
+// buildLocationTree flattens locations into pre-order rows. Locations whose
+// parent is absent from the list (e.g. hidden removed parents) surface at the
+// top level so they stay reachable.
+func buildLocationTree(locations []db.Location) []LocationTreeRow {
+	inList := make(map[int64]bool, len(locations))
+	for _, l := range locations {
+		inList[l.ID] = true
+	}
+
+	childrenOf := map[int64][]db.Location{}
+	var roots []db.Location
+	for _, l := range locations {
+		if l.ParentID.Valid && l.ParentID.Int64 != l.ID && inList[l.ParentID.Int64] {
+			childrenOf[l.ParentID.Int64] = append(childrenOf[l.ParentID.Int64], l)
+		} else {
+			roots = append(roots, l)
+		}
+	}
+
+	rows := make([]LocationTreeRow, 0, len(locations))
+	visited := map[int64]bool{}
+	var walk func(l db.Location, depth int)
+	walk = func(l db.Location, depth int) {
+		if visited[l.ID] {
+			return
+		}
+		visited[l.ID] = true
+		kids := childrenOf[l.ID]
+		rows = append(rows, LocationTreeRow{Location: l, Depth: depth, Indent: depth * 22, HasChildren: len(kids) > 0})
+		for _, k := range kids {
+			walk(k, depth+1)
+		}
+	}
+	for _, r := range roots {
+		walk(r, 0)
+	}
+	return rows
 }
 
 
@@ -742,6 +791,7 @@ func (s *Server) handleAdminLocations(w http.ResponseWriter, r *http.Request) {
 		CSRFToken:       csrf,
 		ActiveNav:       "locations",
 		Locations:       locations,
+		LocationTree:    buildLocationTree(locations),
 		EditingLocation: editLoc,
 		ShowRemoved:     showRemoved,
 		Toast:           r.URL.Query().Get("toast"),
