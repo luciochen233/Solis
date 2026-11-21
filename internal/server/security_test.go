@@ -43,7 +43,7 @@ func webTestServer(t *testing.T, mutate func(*config.Config)) *Server {
 		t.Fatal(err)
 	}
 	cfg := &config.Config{
-		Server: config.ServerConfig{BaseURL: "http://localhost:8889", PublicPages: true},
+		Server: config.ServerConfig{BaseURL: "http://localhost:8889", PublicItems: true, PublicLocations: true},
 		Admin:  config.AdminConfig{Username: "admin", PasswordHash: string(hash), SessionHours: 1},
 		MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
 		Slugs:  config.SlugConfig{Length: 6},
@@ -152,11 +152,14 @@ func TestSafeNext(t *testing.T) {
 	}
 }
 
-// With public_pages off, a visitor who is not logged in is sent to the login
-// page — identically for pages that exist and pages that do not — and comes
-// back to the page after logging in.
-func TestPublicPagesOffRequiresLogin(t *testing.T) {
-	s := webTestServer(t, func(c *config.Config) { c.Server.PublicPages = false })
+// With both guest switches off, a visitor who is not logged in is sent to the
+// login page — identically for pages that exist and pages that do not — and
+// comes back to the page after logging in.
+func TestGuestPagesOffRequireLogin(t *testing.T) {
+	s := webTestServer(t, func(c *config.Config) {
+		c.Server.PublicItems = false
+		c.Server.PublicLocations = false
+	})
 	_, slug := addItem(t, s, "Passport folder")
 	mux := publicMux(s)
 
@@ -181,7 +184,32 @@ func TestPublicPagesOffRequiresLogin(t *testing.T) {
 	}
 }
 
-// With public_pages on (the default) a guest can open an item page, but not
+// Items public, locations private: someone who scans a lost item's label sees
+// the item (and nothing that links into the location tree), while location
+// pages still ask for a login.
+func TestPublicItemsWithPrivateLocations(t *testing.T) {
+	s := webTestServer(t, func(c *config.Config) { c.Server.PublicLocations = false })
+	_, slug := addItem(t, s, "Blue umbrella")
+	mux := publicMux(s)
+
+	if rec := get(mux, "/s/"+slug); rec.Code != http.StatusMovedPermanently || rec.Header().Get("Location") != "/default-room/"+slug {
+		t.Errorf("guest GET /s/slug: got %d %q, want 301 to the item page", rec.Code, rec.Header().Get("Location"))
+	}
+	rec := get(mux, "/default-room/"+slug)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Blue umbrella") {
+		t.Fatalf("guest GET item page: got %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), `href="/default-room"`) {
+		t.Error("guest item page links to a location page that requires a login")
+	}
+	for _, path := range []string{"/default-room", "/no-such-room"} {
+		if rec := get(mux, path); rec.Code != http.StatusSeeOther || !strings.HasPrefix(rec.Header().Get("Location"), "/admin/login?next=") {
+			t.Errorf("guest GET %s: got %d %q, want 303 to login", path, rec.Code, rec.Header().Get("Location"))
+		}
+	}
+}
+
+// With public_items on (the default) a guest can open an item page, but not
 // one whose item was removed.
 func TestRemovedItemHiddenFromGuests(t *testing.T) {
 	s := webTestServer(t, nil)

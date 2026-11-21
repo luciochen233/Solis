@@ -40,12 +40,16 @@ type ServerConfig struct {
 	ProxyHops int `toml:"proxy_hops"`
 	// MaxConcurrent caps the number of in-flight requests (503 beyond it).
 	MaxConcurrent int `toml:"max_concurrent"`
-	// PublicPages controls whether visitors who are not logged in can open
-	// item pages (name, status and description only) and location pages by
-	// URL, e.g. by scanning a QR label. Item slugs are short and derived from
-	// the item ID, so they can be enumerated: set this to false to require a
-	// login for those pages. Custom short links always stay public.
-	PublicPages bool `toml:"public_pages"`
+	// PublicItems controls whether visitors who are not logged in can open an
+	// item page by URL — e.g. someone who finds a lost item and scans its QR
+	// label. They see the item's name, status and description, nothing else.
+	// Item slugs are short and derived from the item ID, so these pages can
+	// be enumerated: keep anything sensitive out of names and descriptions,
+	// or set this to false to require a login.
+	PublicItems bool `toml:"public_items"`
+	// PublicLocations controls whether visitors who are not logged in can
+	// open a location page (its name and description; never its contents).
+	PublicLocations bool `toml:"public_locations"`
 }
 
 type AdminConfig struct {
@@ -112,15 +116,16 @@ func (c *Config) LocalOnly() bool {
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		Server: ServerConfig{
-			Port:          8889,
-			BaseURL:       "http://localhost:8889",
-			ReadTimeout:   "5s",
-			WriteTimeout:  "10s",
-			Language:      "en",
-			TrustProxy:    false,
-			ProxyHops:     1,
-			MaxConcurrent: 64,
-			PublicPages:   true,
+			Port:            8889,
+			BaseURL:         "http://localhost:8889",
+			ReadTimeout:     "5s",
+			WriteTimeout:    "10s",
+			Language:        "en",
+			TrustProxy:      false,
+			ProxyHops:       1,
+			MaxConcurrent:   64,
+			PublicItems:     true,
+			PublicLocations: true,
 		},
 		Admin: AdminConfig{
 			Username:     "admin",

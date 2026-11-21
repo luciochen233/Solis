@@ -743,7 +743,7 @@
                 <a href="/admin" class="btn btn-secondary">
                     {{T "items.detail.back_list"}}
                 </a>
-            {{else}}
+            {{else if .GuestLocations}}
                 <a href="{{with .CurrentLocation}}/{{.Slug}}{{else}}/default-room{{end}}" class="btn btn-secondary">
                     {{T "items.detail.back_dir"}}
                 </a>

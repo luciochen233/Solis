@@ -132,7 +132,8 @@ language = "en"                      # UI Language ("en" or "zh")
 trust_proxy = false                  # true behind a reverse proxy (required there for per-IP rate limits)
 proxy_hops = 1                       # trusted proxies in front: 1 = nginx/Caddy, 2 = Cloudflare -> nginx
 max_concurrent = 64                  # in-flight request cap (503 beyond it)
-public_pages = true                  # false = item/location pages require a login (see Security notes)
+public_items = true                  # guests can open an item page by URL/QR (name, status, description only)
+public_locations = true              # guests can open a location page (name and description only)
 
 [admin]
 username = "admin"
@@ -160,7 +161,7 @@ max_size_mb = 50                     # Maximum file upload size in MB
 
 ### Security notes
 
-- **Guest pages.** With `public_pages = true`, anyone who has (or guesses) an item URL sees that item's name, status and description, and a location URL shows the location's name and description — nothing else, and removed items are hidden. Item slugs are short and derived from the item ID, so they can be enumerated; set `public_pages = false` to send visitors who are not logged in to the login page instead (they return to the scanned page after signing in).
+- **Guest pages.** With `public_items = true`, anyone who has (or guesses) an item URL sees that item's name, status and description and nothing else — useful when a lost item is found and its QR label scanned. Item slugs are short and derived from the item ID, so these pages can be enumerated: keep sensitive details out of names and descriptions, or set `public_items = false` to send visitors who are not logged in to the login page instead (they return to the scanned page after signing in). `public_locations` does the same for location pages (name and description only); it can be `false` without affecting item pages. Removed items and locations are always hidden from guests.
 - **Behind a reverse proxy** set `host = "127.0.0.1"`, `trust_proxy = true` and the right `proxy_hops`. With `trust_proxy = false` behind a proxy every visitor appears as the proxy's address, so the per-IP login/MCP throttles collapse into one bucket that a single client can exhaust for everyone.
 - **CSRF.** State-changing requests need the per-page token *and* must come from this origin (`Sec-Fetch-Site` / `Origin` check), which also stops sibling subdomains. Non-browser clients (curl, MCP) are unaffected.
 - **MCP.** Prefer the API key. Basic auth with the admin password is accepted too, which makes `/mcp` a place where that password can be guessed (failed attempts are throttled per IP and logged) — keep that in mind if the admin UI itself sits behind an extra gate such as Cloudflare Access.

@@ -19,12 +19,15 @@ trust_proxy = false
 proxy_hops = 1
 # Maximum number of in-flight HTTP requests before returning 503.
 max_concurrent = 64
-# Whether visitors who are NOT logged in can open item pages (name, status and
-# description only) and location pages by URL — e.g. someone scanning a QR
-# label. Item slugs are short and derived from the item ID, so anyone can
-# enumerate them. Set to false to require a login for those pages; custom short
-# links stay public either way.
-public_pages = true
+# Whether visitors who are NOT logged in can open an item page by URL — e.g.
+# someone who finds a lost item and scans its QR label. They see the item's
+# name, status and description, nothing else. Item slugs are short and derived
+# from the item ID, so anyone can enumerate these pages: keep sensitive details
+# out of names and descriptions, or set this to false to require a login.
+public_items = true
+# Whether visitors who are NOT logged in can open a location page (its name and
+# description only, never its contents). Not needed for the lost-item case.
+public_locations = true
 # Language for the UI. Supported: "en" (English), "zh" (Chinese).
 # Add new languages by creating a JSON file in internal/i18n/locales/.
 language = "en"

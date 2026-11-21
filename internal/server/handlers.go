@@ -31,6 +31,7 @@ type PageData struct {
 	ToastType        string
 	Error            string
 	Next             string // post-login return path (validated by safeNext)
+	GuestLocations   bool   // location pages are open to guests (show links to them)
 	Items            []db.Item
 	Item             *db.Item
 	Locations        []db.Location
@@ -144,7 +145,7 @@ func (s *Server) handleShortRedirect(w http.ResponseWriter, r *http.Request) {
 	}
 	// Item links lead to item pages; when those require a login, ask for it
 	// here rather than revealing the item's location in the redirect.
-	if link.ItemID.Valid && s.gateGuest(w, r) {
+	if link.ItemID.Valid && s.gateGuest(w, r, s.cfg.Server.PublicItems) {
 		return
 	}
 
@@ -202,11 +203,13 @@ func nextOrAdmin(next string) string {
 }
 
 // gateGuest handles item and location pages for visitors who are not logged
-// in when server.public_pages is off: it sends them to the login page (and
-// back to the same URL afterwards) and reports true. It runs before any
-// database lookup so the response does not reveal whether the page exists.
-func (s *Server) gateGuest(w http.ResponseWriter, r *http.Request) bool {
-	if s.cfg.Server.PublicPages || s.isAuthenticated(r) {
+// in. public is the config switch for that kind of page (server.public_items
+// or server.public_locations); when it is off the visitor is sent to the login
+// page (and back to the same URL afterwards) and gateGuest reports true. It
+// runs before any database lookup so the response does not reveal whether the
+// page exists.
+func (s *Server) gateGuest(w http.ResponseWriter, r *http.Request, public bool) bool {
+	if public || s.isAuthenticated(r) {
 		return false
 	}
 	http.Redirect(w, r, "/admin/login?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
@@ -1517,6 +1520,7 @@ func (s *Server) resolveRoomTag(locationID int64, tagIDs []int64) []int64 {
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data PageData) {
 	data.Lang = s.i18n.Lang()
 	data.IsAuthenticated = s.isAuthenticated(r)
+	data.GuestLocations = s.cfg.Server.PublicLocations
 	if err := renderTemplate(w, name, data); err != nil {
 		log.Printf("Template execution error for %s: %v", name, err)
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
@@ -1595,7 +1599,7 @@ func (s *Server) handlePublicFallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
-	if s.gateGuest(w, r) {
+	if s.gateGuest(w, r, s.cfg.Server.PublicLocations) {
 		return
 	}
 	slugVal := r.PathValue("location_slug")
@@ -1710,7 +1714,7 @@ func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
-	if s.gateGuest(w, r) {
+	if s.gateGuest(w, r, s.cfg.Server.PublicItems) {
 		return
 	}
 	locationSlug := r.PathValue("location_slug")
