@@ -24,14 +24,22 @@ import (
 
 // Global View Data context
 type PageData struct {
-	Lang             string
-	CSRFToken        string
-	ActiveNav        string
-	Toast            string
-	ToastType        string
-	Error            string
-	Next             string // post-login return path (validated by safeNext)
-	GuestLocations   bool   // location pages are open to guests (show links to them)
+	Lang           string
+	CSRFToken      string
+	ActiveNav      string
+	Toast          string
+	ToastType      string
+	Error          string
+	Next           string // post-login return path (validated by safeNext)
+	GuestLocations bool   // location pages are open to guests (show links to them)
+	// Public "found item" card and its admin list
+	FoundSlug        string
+	FoundRef         string // slug as printed on the label (upper case)
+	FoundContact     string
+	FoundReported    bool
+	FoundLimited     bool
+	FoundReports     []db.FoundReport
+	MailReady        bool
 	Items            []db.Item
 	Item             *db.Item
 	Locations        []db.Location
@@ -611,6 +619,7 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 		CustomFields:   customFieldsJSON,
 		ImagePath:      imagePath,
 		ReceiptPath:    receiptPath,
+		PublicNote:     cleanText(r.FormValue("public_note"), 300),
 	}
 
 	// Insert item into database
@@ -752,6 +761,7 @@ func (s *Server) handleItemSave(w http.ResponseWriter, r *http.Request) {
 	item.WarrantyMonths = warranty
 	item.Supplier = supplier
 	item.CustomFields = customFieldsJSON
+	item.PublicNote = cleanText(r.FormValue("public_note"), 300)
 
 	err = s.db.UpdateItem(item, tagIDs)
 	if err != nil {
@@ -1759,6 +1769,14 @@ func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
 
 	if correctLocationSlug != locationSlug {
 		http.Redirect(w, r, fmt.Sprintf("/%s/%s", correctLocationSlug, itemSlug), http.StatusMovedPermanently)
+		return
+	}
+
+	// Visitors who are not logged in get the "found item" card: the item's
+	// name, the owner's contact line and a report button — nothing else from
+	// the record.
+	if !s.isAuthenticated(r) {
+		s.renderFoundCard(w, r, item, link.Slug)
 		return
 	}
 

@@ -43,11 +43,46 @@ func Open(path string) (*DB, error) {
 	return &DB{Conn: conn}, nil
 }
 
+// ensureColumn adds a column to a table if an older database lacks it.
+// table, column and ddl are constants from this file, never user input.
+func ensureColumn(conn *sql.DB, table, column, ddl string) error {
+	rows, err := conn.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return fmt.Errorf("pragma table_info for %s: %w", table, err)
+	}
+	found := false
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dfltValue interface{}
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+			rows.Close()
+			return fmt.Errorf("scanning table_info for %s: %w", table, err)
+		}
+		if name == column {
+			found = true
+		}
+	}
+	rows.Close()
+	if found {
+		return nil
+	}
+	if _, err := conn.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, ddl)); err != nil {
+		return fmt.Errorf("adding %s column to %s: %w", column, table, err)
+	}
+	return nil
+}
+
 func migrate(conn *sql.DB) error {
 	// Execute schema migrations
 	_, err := conn.Exec(schemaSQL)
 	if err != nil {
 		return fmt.Errorf("running schema migrations: %w", err)
+	}
+
+	// Ensure the public_note column exists in items (for existing databases)
+	if err := ensureColumn(conn, "items", "public_note", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
 	}
 
 	// Ensure lifecycle_state column exists in items, locations, tags, links (for existing databases)

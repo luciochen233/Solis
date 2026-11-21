@@ -154,6 +154,17 @@ length = 4                           # Number of characters in shortlinks
 [upload]
 dir = "./data/uploads"               # Upload target folder
 max_size_mb = 50                     # Maximum file upload size in MB
+
+[found]
+contact = ""                         # Shown on every item's public page, e.g. "If found, email lost@example.com"
+notify_to = ""                       # Email address that receives found-item reports
+
+[smtp]                               # Outgoing mail for those reports (465 = implicit TLS, otherwise STARTTLS)
+host = ""
+port = 587
+username = ""
+password = ""
+from = ""
 ```
 
 > [!WARNING]
@@ -161,7 +172,8 @@ max_size_mb = 50                     # Maximum file upload size in MB
 
 ### Security notes
 
-- **Guest pages.** With `public_items = true`, anyone who has (or guesses) an item URL sees that item's name, status and description and nothing else — useful when a lost item is found and its QR label scanned. Item slugs are short and derived from the item ID, so these pages can be enumerated: keep sensitive details out of names and descriptions, or set `public_items = false` to send visitors who are not logged in to the login page instead (they return to the scanned page after signing in). `public_locations` does the same for location pages (name and description only); it can be `false` without affecting item pages. Removed items and locations are always hidden from guests.
+- **Guest pages (found items).** With `public_items = true`, someone who is not logged in and opens an item URL — typically by scanning the QR label on a lost item — sees a small card: the item's **name**, its optional **public note**, your `[found] contact` line and an **"I found this item"** button. Status, description, photos, serial numbers, prices and everything else stay private. Item slugs are short and derived from the item ID, so these cards can be enumerated; that is why they carry nothing but the name. Set `public_items = false` to require a login instead. `public_locations` does the same for location pages (name and description only) and can be `false` without affecting item pages. Removed items and locations are always hidden from guests.
+- **Found reports.** The button stores a report and emails it to `[found] notify_to` (if `[smtp]` is set). A report contains the finder's IP address, the coarse location of that IP (from Cloudflare's `CF-IPCountry` / visitor-location headers when `trust_proxy` is on), and — only if the finder chooses to share them — their phone number and their device's GPS position. The page tells the finder exactly that before they tap. Reports are listed under **Found Reports** in the admin UI and can be deleted there. The endpoint is public, so it is CSRF- and origin-checked, limited to one report per address per minute, and sends at most one email per item per 10 minutes.
 - **Behind a reverse proxy** set `host = "127.0.0.1"`, `trust_proxy = true` and the right `proxy_hops`. With `trust_proxy = false` behind a proxy every visitor appears as the proxy's address, so the per-IP login/MCP throttles collapse into one bucket that a single client can exhaust for everyone.
 - **CSRF.** State-changing requests need the per-page token *and* must come from this origin (`Sec-Fetch-Site` / `Origin` check), which also stops sibling subdomains. Non-browser clients (curl, MCP) are unaffected.
 - **MCP.** Prefer the API key. Basic auth with the admin password is accepted too, which makes `/mcp` a place where that password can be guessed (failed attempts are throttled per IP and logged) — keep that in mind if the admin UI itself sits behind an extra gate such as Cloudflare Access.

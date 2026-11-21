@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS items (
     custom_fields   TEXT NOT NULL DEFAULT '{}',     -- JSON text field containing arbitrary key-value custom metadata
     image_path      TEXT NOT NULL DEFAULT '',
     receipt_path    TEXT NOT NULL DEFAULT '',
+    public_note     TEXT NOT NULL DEFAULT '',       -- shown to guests on the item's public page
     lifecycle_state TEXT NOT NULL DEFAULT 'active',
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -79,3 +80,24 @@ CREATE TABLE IF NOT EXISTS links (
 
 CREATE INDEX IF NOT EXISTS idx_links_slug ON links(slug);
 CREATE INDEX IF NOT EXISTS idx_links_item ON links(item_id);
+
+-- "I found this item" reports submitted from an item's public page.
+CREATE TABLE IF NOT EXISTS found_reports (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id      INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    item_name    TEXT NOT NULL DEFAULT '',
+    slug         TEXT NOT NULL DEFAULT '',
+    ip           TEXT NOT NULL DEFAULT '',
+    ip_country   TEXT NOT NULL DEFAULT '',
+    ip_region    TEXT NOT NULL DEFAULT '',
+    ip_city      TEXT NOT NULL DEFAULT '',
+    ip_lat       REAL,
+    ip_lon       REAL,
+    gps_lat      REAL,
+    gps_lon      REAL,
+    gps_accuracy REAL,
+    phone        TEXT NOT NULL DEFAULT '',
+    user_agent   TEXT NOT NULL DEFAULT '',
+    emailed      INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);

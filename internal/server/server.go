@@ -22,6 +22,7 @@ import (
 	"Solis/internal/db"
 	"Solis/internal/httpguard"
 	"Solis/internal/i18n"
+	"Solis/internal/notify"
 )
 
 type Server struct {
@@ -32,8 +33,14 @@ type Server struct {
 	// per client IP; pwGate bounds concurrent bcrypt work.
 	authLimiter *httpguard.RateLimiter
 	pwGate      *httpguard.PasswordGate
-	catalog     []config.CatalogCategory
-	i18n        *i18n.Translator
+	// Found-item reports are public: these bound how many one address and
+	// everyone together can store, and how many emails one item can trigger.
+	foundIPLimiter   *httpguard.RateLimiter
+	foundAllLimiter  *httpguard.RateLimiter
+	foundMailLimiter *httpguard.RateLimiter
+	mailer           notify.Mailer
+	catalog          []config.CatalogCategory
+	i18n             *i18n.Translator
 }
 
 func New(cfg *config.Config, database *db.DB) *Server {
@@ -56,8 +63,19 @@ func New(cfg *config.Config, database *db.DB) *Server {
 		sessions:    newSessionStore(ttl),
 		authLimiter: httpguard.NewRateLimiter(2 * time.Second),
 		pwGate:      httpguard.NewPasswordGate(runtime.NumCPU()),
-		catalog:     cat,
-		i18n:        translator,
+
+		foundIPLimiter:   httpguard.NewRateLimiter(time.Minute),
+		foundAllLimiter:  httpguard.NewRateLimiter(3 * time.Second),
+		foundMailLimiter: httpguard.NewRateLimiter(foundMailWindow),
+		mailer: notify.Mailer{
+			Host:     cfg.SMTP.Host,
+			Port:     cfg.SMTP.Port,
+			Username: cfg.SMTP.Username,
+			Password: cfg.SMTP.Password,
+			From:     cfg.SMTP.From,
+		},
+		catalog: cat,
+		i18n:    translator,
 	}
 }
 
@@ -181,6 +199,11 @@ func (s *Server) Start() error {
 	// 10. QR & Labels
 	mux.HandleFunc("GET /admin/qr/{slug}", s.requireAuth(s.handleQR))
 	mux.HandleFunc("GET /admin/print", s.requireAuth(s.handlePrintLabels))
+
+	// 10b. Found-item reports: public submit, admin list
+	mux.HandleFunc("POST /found/{slug}", s.requireCSRF(s.handleFoundReport))
+	mux.HandleFunc("GET /admin/found", s.requireAuth(s.handleAdminFound))
+	mux.HandleFunc("POST /admin/found/delete/{id}", s.requireAuth(s.requireCSRF(s.handleAdminFoundDelete)))
 
 	// 11. MCP endpoint
 	if s.cfg.MCP.Enabled {

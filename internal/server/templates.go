@@ -86,6 +86,8 @@ var templateFuncs = template.FuncMap{
 		}
 		return dict, nil
 	},
+	"mapURL":  MapURL,
+	"ipPlace": func(r db.FoundReport) string { return IPPlace(&r) },
 	"hasTag": func(itemTags []db.Tag, tagID int64) bool {
 		for _, t := range itemTags {
 			if t.ID == tagID {
@@ -109,6 +111,8 @@ func initTemplates(translator *i18n.Translator) {
 		"shortener.html",
 		"print_labels.html",
 		"location_folder.html",
+		"found.html",
+		"found_reports.html",
 		"404.html",
 	}
 

@@ -18,6 +18,29 @@ type Config struct {
 	Database DatabaseConfig `toml:"database"`
 	Slugs    SlugConfig     `toml:"slugs"`
 	Upload   UploadConfig   `toml:"upload"`
+	Found    FoundConfig    `toml:"found"`
+	SMTP     SMTPConfig     `toml:"smtp"`
+}
+
+// FoundConfig controls the public "found item" page and its reports.
+type FoundConfig struct {
+	// Contact is shown to anyone who opens an item's public page, e.g.
+	// "If found, please email lost@example.com". Publish only a contact you
+	// are comfortable making public.
+	Contact string `toml:"contact"`
+	// NotifyTo receives an email for each found-item report (needs [smtp]).
+	NotifyTo string `toml:"notify_to"`
+}
+
+// SMTPConfig is the outgoing mail server used for found-item notifications.
+// Port 465 uses implicit TLS; any other port must offer STARTTLS (mail is
+// never sent in the clear, except to a server on localhost).
+type SMTPConfig struct {
+	Host     string `toml:"host"`
+	Port     int    `toml:"port"`
+	Username string `toml:"username"`
+	Password string `toml:"password"`
+	From     string `toml:"from"`
 }
 
 type ServerConfig struct {
@@ -141,6 +164,7 @@ func Load(path string) (*Config, error) {
 			Dir:     "./data/uploads",
 			MaxSize: 10, // 10MB is plenty for home receipts and item photos
 		},
+		SMTP: SMTPConfig{Port: 587},
 	}
 
 	data, err := os.ReadFile(path)

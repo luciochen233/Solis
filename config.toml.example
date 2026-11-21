@@ -56,3 +56,23 @@ length = 4
 [upload]
 dir = "./data/uploads"
 max_size_mb = 50
+
+[found]
+# Shown to anyone who opens an item's public page (for example by scanning the
+# QR label on a lost item), next to the item's name. Publish only a contact
+# you are comfortable making public — an alias is a good idea. Optional: the
+# page also has an "I found this" button that reports the find to you.
+contact = ""
+# Where to email found-item reports. Needs the [smtp] section below. Reports
+# are always stored and listed under Found Reports in the admin UI.
+notify_to = ""
+
+[smtp]
+# Outgoing mail server for found-item notifications. Port 465 uses implicit
+# TLS; any other port must offer STARTTLS (mail is never sent unencrypted,
+# except to a server on localhost).
+host = ""
+port = 587
+username = ""
+password = ""
+from = ""
