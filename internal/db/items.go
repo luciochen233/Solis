@@ -23,6 +23,7 @@ type Item struct {
 	CustomFields   string // JSON text
 	ImagePath      string
 	ReceiptPath    string
+	PublicNote     string // shown to guests on the item's public "found" page
 	LifecycleState string // 'active', 'archived', 'removed'
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
@@ -43,11 +44,11 @@ func (d *DB) CreateItem(item *Item, tagIDs []int64) (*Item, error) {
 		INSERT INTO items (
 			name, description, quantity, model_number, serial_number, status, 
 			location_id, purchase_price, purchase_date, warranty_months, supplier, 
-			custom_fields, image_path, receipt_path
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			custom_fields, image_path, receipt_path, public_note
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		item.Name, item.Description, item.Quantity, item.ModelNumber, item.SerialNumber, item.Status,
 		item.LocationID, item.PurchasePrice, item.PurchaseDate, item.WarrantyMonths, item.Supplier,
-		item.CustomFields, item.ImagePath, item.ReceiptPath,
+		item.CustomFields, item.ImagePath, item.ReceiptPath, item.PublicNote,
 	)
 	if err != nil {
 		return nil, err
@@ -88,7 +89,7 @@ func (d *DB) GetItem(id int64) (*Item, error) {
 			i.id, i.name, i.description, i.quantity, i.model_number, i.serial_number, i.status, 
 			i.location_id, l.name AS location_name, i.purchase_price, i.purchase_date, i.warranty_months, 
 			i.supplier, i.custom_fields, i.image_path, i.receipt_path, i.created_at, i.updated_at,
-			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug
+			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug, i.public_note
 		FROM items i
 		LEFT JOIN locations l ON i.location_id = l.id
 		LEFT JOIN links lk ON lk.item_id = i.id
@@ -122,11 +123,11 @@ func (d *DB) UpdateItem(item *Item, tagIDs []int64) error {
 		UPDATE items SET 
 			name = ?, description = ?, quantity = ?, model_number = ?, serial_number = ?, status = ?, 
 			location_id = ?, purchase_price = ?, purchase_date = ?, warranty_months = ?, supplier = ?, 
-			custom_fields = ?, image_path = ?, receipt_path = ?, updated_at = datetime('now') 
+			custom_fields = ?, image_path = ?, receipt_path = ?, public_note = ?, updated_at = datetime('now') 
 		WHERE id = ?`,
 		item.Name, item.Description, item.Quantity, item.ModelNumber, item.SerialNumber, item.Status,
 		item.LocationID, item.PurchasePrice, item.PurchaseDate, item.WarrantyMonths, item.Supplier,
-		item.CustomFields, item.ImagePath, item.ReceiptPath, item.ID,
+		item.CustomFields, item.ImagePath, item.ReceiptPath, item.PublicNote, item.ID,
 	)
 	if err != nil {
 		return err
@@ -183,7 +184,7 @@ func (d *DB) ListItems(showRemoved bool) ([]Item, error) {
 			i.id, i.name, i.description, i.quantity, i.model_number, i.serial_number, i.status, 
 			i.location_id, l.name AS location_name, i.purchase_price, i.purchase_date, i.warranty_months, 
 			i.supplier, i.custom_fields, i.image_path, i.receipt_path, i.created_at, i.updated_at,
-			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug
+			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug, i.public_note
 		FROM items i
 		LEFT JOIN locations l ON i.location_id = l.id
 		LEFT JOIN links lk ON lk.item_id = i.id
@@ -314,7 +315,7 @@ func scanItem(row interface {
 	err := row.Scan(
 		&i.ID, &i.Name, &i.Description, &i.Quantity, &i.ModelNumber, &i.SerialNumber, &i.Status,
 		&locID, &locName, &price, &date, &warranty, &i.Supplier, &i.CustomFields, &i.ImagePath,
-		&i.ReceiptPath, &created, &updated, &i.ShortSlug, &i.LifecycleState, &locSlug,
+		&i.ReceiptPath, &created, &updated, &i.ShortSlug, &i.LifecycleState, &locSlug, &i.PublicNote,
 	)
 	if err != nil {
 		return nil, err
@@ -356,7 +357,7 @@ func (d *DB) ListItemsByLocation(locID int64, showRemoved bool) ([]Item, error) 
 			i.id, i.name, i.description, i.quantity, i.model_number, i.serial_number, i.status, 
 			i.location_id, l.name AS location_name, i.purchase_price, i.purchase_date, i.warranty_months, 
 			i.supplier, i.custom_fields, i.image_path, i.receipt_path, i.created_at, i.updated_at,
-			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug
+			COALESCE(lk.slug, '') AS short_slug, i.lifecycle_state, l.slug AS location_slug, i.public_note
 		FROM items i
 		LEFT JOIN locations l ON i.location_id = l.id
 		LEFT JOIN links lk ON lk.item_id = i.id

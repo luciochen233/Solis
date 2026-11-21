@@ -52,6 +52,15 @@ func main() {
 		log.Fatalf("Error loading config: %v\n\nIf the config file does not exist, make sure to create config.toml (you can use config.toml.example as a template).", err)
 	}
 
+	// The example config ships with the password "admin". That is fine for a
+	// first look on localhost, but never for an instance others can reach.
+	if cfg.UsesDefaultPassword() {
+		if !cfg.LocalOnly() {
+			log.Fatalf("Refusing to start: admin.password_hash is still the default password \"admin\" and base_url (%s) is not localhost.\nGenerate a new hash with: solis --hash-password \"your-password\"", cfg.Server.BaseURL)
+		}
+		log.Printf("WARNING: the admin password is still the default \"admin\". Change admin.password_hash before exposing this instance to anyone else.")
+	}
+
 	// Initialize the CGO-free database
 	log.Printf("Initializing database at %s...", cfg.Database.Path)
 	database, err := db.Open(cfg.Database.Path)

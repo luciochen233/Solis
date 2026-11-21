@@ -123,11 +123,17 @@ Customize your application by editing the generated `config.toml` file:
 
 ```toml
 [server]
+host = ""                            # Listen address ("" = all interfaces; "127.0.0.1" behind a local reverse proxy)
 port = 8889                          # Server port to bind to
 base_url = "http://localhost:8889"    # Public URL (used for generating QR codes/shortlinks)
 read_timeout = "5s"
 write_timeout = "10s"
 language = "en"                      # UI Language ("en" or "zh")
+trust_proxy = false                  # true behind a reverse proxy (required there for per-IP rate limits)
+proxy_hops = 1                       # trusted proxies in front: 1 = nginx/Caddy, 2 = Cloudflare -> nginx
+max_concurrent = 64                  # in-flight request cap (503 beyond it)
+public_items = true                  # guests can open an item page by URL/QR (name, status, description only)
+public_locations = true              # guests can open a location page (name and description only)
 
 [admin]
 username = "admin"
@@ -148,10 +154,37 @@ length = 4                           # Number of characters in shortlinks
 [upload]
 dir = "./data/uploads"               # Upload target folder
 max_size_mb = 50                     # Maximum file upload size in MB
+
+[shortlinks]
+provider = "builtin"                 # "glimmer" = item QR codes use a Glimmer short link (smaller QR)
+glimmer_url = ""                     # Glimmer's API: public URL or http://127.0.0.1:<port>
+glimmer_api_key = ""                 # this app's key from Glimmer's [[api.keys]]
+
+[found]
+contact = ""                         # Shown on every item's public page, e.g. "If found, email lost@example.com"
+notify_to = ""                       # Email address that receives found-item reports
+
+[smtp]                               # Outgoing mail for those reports (465 = implicit TLS, otherwise STARTTLS)
+host = ""
+port = 587
+username = ""
+password = ""
+from = ""
 ```
 
 > [!WARNING]
-> Always change the default `password_hash` in `config.toml` before exposing your server to the internet or local networks.
+> Always change the default `password_hash` in `config.toml` before exposing your server to the internet or local networks. Solis refuses to start with the default password unless `base_url` points at localhost.
+
+### Security notes
+
+- **Guest pages (found items).** With `public_items = true`, someone who is not logged in and opens an item URL — typically by scanning the QR label on a lost item — sees a small card: the item's **name**, its optional **public note**, your `[found] contact` line and an **"I found this item"** button. Status, description, photos, serial numbers, prices and everything else stay private. Item slugs are short and derived from the item ID, so these cards can be enumerated; that is why they carry nothing but the name. Set `public_items = false` to require a login instead. `public_locations` does the same for location pages (name and description only) and can be `false` without affecting item pages. Removed items and locations are always hidden from guests.
+- **Found reports.** The card has a message box (for example where the item is, or where to meet), optional phone and email fields, a **Where is the item** button that asks the finder's browser for its location and attaches it, and the main button that sends the report. A report always contains the finder's IP address and the coarse location of that IP (from Cloudflare's `CF-IPCountry` / visitor-location headers when `trust_proxy` is on); the message, contact details and GPS position are included only if the finder provides them, and the page says so. Reports are stored, listed under **Found Reports** in the admin UI (deletable) and emailed to `[found] notify_to` (if `[smtp]` is set) with the finder's email as Reply-To. The endpoint is public, so it is CSRF- and origin-checked, limited to one report per address per minute, validates every field, and paces email without dropping anything: the first report for an item is emailed at once, later ones within the next ten minutes are bundled into one follow-up email (so an item produces at most one email per ten minutes), undelivered reports are retried and survive a restart, and at most 200 notification emails go out per day (reports beyond that still appear under Found Reports).
+- **Behind a reverse proxy** set `host = "127.0.0.1"`, `trust_proxy = true` and the right `proxy_hops`. With `trust_proxy = false` behind a proxy every visitor appears as the proxy's address, so the per-IP login/MCP throttles collapse into one bucket that a single client can exhaust for everyone.
+- **CSRF.** State-changing requests need the per-page token *and* must come from this origin (`Sec-Fetch-Site` / `Origin` check), which also stops sibling subdomains. Non-browser clients (curl, MCP) are unaffected.
+- **MCP.** Prefer the API key. Basic auth with the admin password is accepted too, which makes `/mcp` a place where that password can be guessed (failed attempts are throttled per IP and logged) — keep that in mind if the admin UI itself sits behind an extra gate such as Cloudflare Access.
+- **Glimmer short links.** With `[shortlinks] provider = "glimmer"`, an item's QR code encodes a short link created through Glimmer's REST API that redirects to this server's own `/s/<slug>`. Solis uses its own application key there, which can only manage the links Solis created. The link is created the first time a QR code is requested, repointed if this server's address changes, and deleted when the item is permanently deleted. If Glimmer is unreachable the QR code falls back to the built-in link, and labels printed before the switch keep working because `/s/<slug>` never goes away.
+- **Shared hardening code.** `internal/httpguard` is kept byte-identical with the copy in [Glimmer](https://github.com/luciochen233/Glimmer); change it in one repository and copy it to the other.
+- A hardened systemd unit is provided in `deploy/solis.service`.
 
 ### MCP Access
 
@@ -237,6 +270,8 @@ A complete `Caddyfile` is provided in the repository root. To configure it:
 - `main.go` - Application entry point and configuration loading.
 - `internal/db/` - SQLite database drivers, schema creations, and CRUD operations.
 - `internal/server/` - Routing handlers, HTTP middleware, session managers, and custom static resources.
+- `internal/httpguard/` - HTTP hardening shared verbatim with Glimmer (client IP, rate limits, cross-origin guard, body caps).
+- `deploy/solis.service` - Hardened systemd unit.
 - `internal/server/templates/` - Modern HTMX template files.
 - `internal/slug/` - Clean and collision-resistant slug generators.
 - `config.toml` - Core configuration specifications.

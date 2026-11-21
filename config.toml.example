@@ -1,17 +1,41 @@
 # Solis Configuration Template
 
 [server]
+# Address to listen on. Empty = all interfaces. Set to "127.0.0.1" when a
+# reverse proxy on the same machine (nginx, Caddy) fronts Solis, so the app
+# cannot be reached around the proxy.
+host = ""
 port = 8889
 base_url = "http://localhost:8889"
 read_timeout = "5s"
 write_timeout = "10s"
+# Only enable behind a trusted reverse proxy that sets X-Forwarded-For. When
+# false, the real connection IP is used for rate limiting (cannot be spoofed).
+# Behind a proxy it MUST be true, or every visitor shares one rate-limit bucket.
+trust_proxy = false
+# Number of trusted proxies in front of Solis (only used when trust_proxy is
+# true). The client IP is read that many entries from the RIGHT of
+# X-Forwarded-For. 1 = a single proxy (nginx or Caddy); 2 = Cloudflare -> nginx.
+proxy_hops = 1
+# Maximum number of in-flight HTTP requests before returning 503.
+max_concurrent = 64
+# Whether visitors who are NOT logged in can open an item page by URL — e.g.
+# someone who finds a lost item and scans its QR label. They see the item's
+# name, status and description, nothing else. Item slugs are short and derived
+# from the item ID, so anyone can enumerate these pages: keep sensitive details
+# out of names and descriptions, or set this to false to require a login.
+public_items = true
+# Whether visitors who are NOT logged in can open a location page (its name and
+# description only, never its contents). Not needed for the lost-item case.
+public_locations = true
 # Language for the UI. Supported: "en" (English), "zh" (Chinese).
 # Add new languages by creating a JSON file in internal/i18n/locales/.
 language = "en"
 
 [admin]
 username = "admin"
-# Default password: "admin" — CHANGE THIS IN PRODUCTION!
+# Default password: "admin" — CHANGE THIS! Solis refuses to start with this
+# hash unless base_url points at localhost.
 # Generate a new bcrypt hash using: ./solis --hash-password "your-password"
 password_hash = "$2a$10$WXBoF7ZB7fIRl5smdGH9seqlNbXWiCS7ZbGNk0ONb9xjS8499gBpu"
 session_hours = 24
@@ -32,3 +56,37 @@ length = 4
 [upload]
 dir = "./data/uploads"
 max_size_mb = 50
+
+[found]
+# Shown to anyone who opens an item's public page (for example by scanning the
+# QR label on a lost item), next to the item's name. Publish only a contact
+# you are comfortable making public — an alias is a good idea. Optional: the
+# page also has an "I found this" button that reports the find to you.
+contact = ""
+# Where to email found-item reports. Needs the [smtp] section below. Reports
+# are always stored and listed under Found Reports in the admin UI.
+notify_to = ""
+
+[smtp]
+# Outgoing mail server for found-item notifications. Port 465 uses implicit
+# TLS; any other port must offer STARTTLS (mail is never sent unencrypted,
+# except to a server on localhost).
+host = ""
+port = 587
+username = ""
+password = ""
+from = ""
+
+[shortlinks]
+# What the QR codes on item labels point to.
+#   "builtin" — this server's own <base_url>/s/<slug> (default).
+#   "glimmer" — a short link made by a Glimmer instance that redirects to the
+#               address above. Glimmer's URLs are shorter, so the QR code is
+#               smaller. The built-in link keeps working either way, and if
+#               Glimmer cannot be reached the QR code falls back to it.
+provider = "builtin"
+# Where Glimmer's API is reached: its public URL, or http://127.0.0.1:<port>
+# when it runs on the same machine.
+glimmer_url = ""
+# This application's key from Glimmer's [[api.keys]] (not Glimmer's admin key).
+glimmer_api_key = ""

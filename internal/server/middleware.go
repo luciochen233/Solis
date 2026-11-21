@@ -4,11 +4,14 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
-	"net"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"Solis/internal/httpguard"
 )
 
 type sessionStore struct {
@@ -119,7 +122,9 @@ func (s *Server) csrfToken(w http.ResponseWriter, r *http.Request) string {
 
 func verifyCSRF(r *http.Request) bool {
 	cookie, err := r.Cookie("csrf")
-	if err != nil || cookie.Value == "" {
+	// Require a full-length token: an empty or truncated cookie must never
+	// "match" an empty/missing form field.
+	if err != nil || len(cookie.Value) != 64 {
 		return false
 	}
 
@@ -147,83 +152,56 @@ func (srv *Server) requireCSRF(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// rateLimiter tracks the last request time per IP.
-type rateLimiter struct {
-	mu      sync.Mutex
-	clients map[string]time.Time
-	window  time.Duration
-}
-
-func newRateLimiter(window time.Duration) *rateLimiter {
-	return &rateLimiter{
-		clients: make(map[string]time.Time),
-		window:  window,
+// clientIP returns the client IP for rate limiting and logs, using the
+// server's proxy settings (see httpguard.ClientIP).
+func (srv *Server) clientIP(r *http.Request) string {
+	hops := 0
+	if srv.cfg.Server.TrustProxy {
+		hops = srv.cfg.Server.ProxyHops
+		if hops < 1 {
+			hops = 1
+		}
 	}
+	return httpguard.ClientIP(r, hops)
 }
 
-func (rl *rateLimiter) Allow(ip string) bool {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-	now := time.Now()
-	if last, ok := rl.clients[ip]; ok && now.Sub(last) < rl.window {
-		return false
-	}
-	rl.clients[ip] = now
-	rl.purgeLocked(now)
-	return true
+// isAuthenticated reports whether the request carries a valid admin session.
+func (srv *Server) isAuthenticated(r *http.Request) bool {
+	cookie, err := r.Cookie("session")
+	return err == nil && srv.sessions.Valid(cookie.Value)
 }
 
-// Blocked reports whether the IP is inside the rate-limit window without
-// consuming a slot. Used to gate endpoints where only failures should count.
-func (rl *rateLimiter) Blocked(ip string) bool {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-	last, ok := rl.clients[ip]
-	return ok && time.Since(last) < rl.window
-}
+// limitUpload prepares a multipart upload request: it caps the body at the
+// configured upload size, extends the short global timeouts, and parses the
+// form with a small in-memory budget so large files spill to temp files.
+//
+// It must wrap requireCSRF, not the other way round: requireCSRF reads a form
+// value, which would otherwise parse the whole body first with no size cap at
+// all and with Go's default 32 MB in-memory budget.
+func (srv *Server) limitUpload(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		maxBytes := srv.cfg.Upload.MaxSize*1024*1024 + 1<<20 // files + form fields
+		r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 
-// Record marks a (failed) attempt for the IP, starting its rate-limit window.
-func (rl *rateLimiter) Record(ip string) {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-	now := time.Now()
-	rl.clients[ip] = now
-	rl.purgeLocked(now)
-}
+		rc := http.NewResponseController(w)
+		_ = rc.SetReadDeadline(time.Now().Add(120 * time.Second))
+		_ = rc.SetWriteDeadline(time.Now().Add(120 * time.Second))
 
-// purgeLocked lazily removes stale entries when the map grows large.
-// Caller must hold rl.mu.
-func (rl *rateLimiter) purgeLocked(now time.Time) {
-	if len(rl.clients) > 1000 {
-		for k, v := range rl.clients {
-			if now.Sub(v) > rl.window*10 {
-				delete(rl.clients, k)
+		if err := r.ParseMultipartForm(4 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+			var maxErr *http.MaxBytesError
+			if errors.As(err, &maxErr) {
+				http.Error(w, fmt.Sprintf("Upload exceeds the %d MB limit", srv.cfg.Upload.MaxSize), http.StatusRequestEntityTooLarge)
+			} else {
+				http.Error(w, "Invalid upload", http.StatusBadRequest)
 			}
+			return
 		}
+		next(w, r)
 	}
 }
 
-func clientIP(r *http.Request) string {
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if isPrivateIP(host) {
-		// Use the RIGHTMOST X-Forwarded-For entry: it is the one appended by
-		// our own (trusted) reverse proxy. Earlier entries are client-supplied
-		// and trivially spoofable, which would defeat rate limiting.
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			parts := strings.Split(xff, ",")
-			return strings.TrimSpace(parts[len(parts)-1])
-		}
-		if xri := r.Header.Get("X-Real-Ip"); xri != "" {
-			return strings.TrimSpace(xri)
-		}
-	}
-	return host
-}
-
-func isPrivateIP(ipStr string) bool {
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return false
-	}
-	return ip.IsLoopback() || ip.IsPrivate()
+// isUploadRoute matches the item forms, which carry file uploads and get
+// their (larger) body cap from limitUpload instead of the global one.
+func isUploadRoute(r *http.Request) bool {
+	return r.URL.Path == "/admin/items/new" || strings.HasPrefix(r.URL.Path, "/admin/items/edit/")
 }

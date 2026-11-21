@@ -20,17 +20,26 @@ import (
 	"Solis/internal/slug"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Global View Data context
 type PageData struct {
-	Lang             string
-	CSRFToken        string
-	ActiveNav        string
-	Toast            string
-	ToastType        string
-	Error            string
+	Lang           string
+	CSRFToken      string
+	ActiveNav      string
+	Toast          string
+	ToastType      string
+	Error          string
+	Next           string // post-login return path (validated by safeNext)
+	GuestLocations bool   // location pages are open to guests (show links to them)
+	// Public "found item" card and its admin list
+	FoundSlug        string
+	FoundRef         string // slug as printed on the label (upper case)
+	FoundContact     string
+	FoundReported    bool
+	FoundLimited     bool
+	FoundReports     []db.FoundReport
+	MailReady        bool
 	Items            []db.Item
 	Item             *db.Item
 	Locations        []db.Location
@@ -114,7 +123,6 @@ func buildLocationTree(locations []db.Location) []LocationTreeRow {
 	return rows
 }
 
-
 // ==========================================
 // 1. PUBLIC SHORT URL REDIRECT HANDLER
 // ==========================================
@@ -138,6 +146,17 @@ func (s *Server) handleShortRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A removed (soft-deleted) link must stop working for the outside world.
+	if link.LifecycleState == "removed" && !s.isAuthenticated(r) {
+		s.render404(w, r)
+		return
+	}
+	// Item links lead to item pages; when those require a login, ask for it
+	// here rather than revealing the item's location in the redirect.
+	if link.ItemID.Valid && s.gateGuest(w, r, s.cfg.Server.PublicItems) {
+		return
+	}
+
 	// Increment analytics click counter
 	_ = s.db.IncrementLinkClicks(link.Slug)
 
@@ -150,21 +169,64 @@ func (s *Server) handleShortRedirect(w http.ResponseWriter, r *http.Request) {
 // ==========================================
 
 func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
-	// If already authenticated, redirect to Admin dashboard
-	if cookie, err := r.Cookie("session"); err == nil && s.sessions.Valid(cookie.Value) {
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	next := safeNext(r.URL.Query().Get("next"))
+
+	// If already authenticated, go straight to the destination
+	if s.isAuthenticated(r) {
+		http.Redirect(w, r, nextOrAdmin(next), http.StatusSeeOther)
 		return
 	}
 
 	data := PageData{
 		CSRFToken: s.csrfToken(w, r),
+		Next:      next,
 	}
 	s.render(w, r, "login.html", data)
 }
 
+// safeNext validates a post-login return path. Only a same-site absolute path
+// is accepted; anything else yields "". "//host" and "/\host" are
+// scheme-relative URLs, and browsers strip tabs and newlines from URLs, so
+// both backslashes and control characters are refused outright.
+func safeNext(next string) string {
+	if next == "" || next[0] != '/' || strings.HasPrefix(next, "//") {
+		return ""
+	}
+	for _, c := range next {
+		if c < 0x20 || c == 0x7f || c == '\\' {
+			return ""
+		}
+	}
+	if u, err := url.Parse(next); err != nil || u.Scheme != "" || u.Host != "" {
+		return ""
+	}
+	return next
+}
+
+func nextOrAdmin(next string) string {
+	if next == "" {
+		return "/admin"
+	}
+	return next
+}
+
+// gateGuest handles item and location pages for visitors who are not logged
+// in. public is the config switch for that kind of page (server.public_items
+// or server.public_locations); when it is off the visitor is sent to the login
+// page (and back to the same URL afterwards) and gateGuest reports true. It
+// runs before any database lookup so the response does not reveal whether the
+// page exists.
+func (s *Server) gateGuest(w http.ResponseWriter, r *http.Request, public bool) bool {
+	if public || s.isAuthenticated(r) {
+		return false
+	}
+	http.Redirect(w, r, "/admin/login?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
+	return true
+}
+
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	ip := clientIP(r)
-	if !s.limiter.Allow(ip) {
+	ip := s.clientIP(r)
+	if !s.authLimiter.Allow(ip) {
 		data := PageData{
 			CSRFToken: s.csrfToken(w, r),
 			Error:     "Too many login attempts. Please wait.",
@@ -182,12 +244,19 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	username := r.FormValue("username")
 	password := r.FormValue("password")
+	next := safeNext(r.FormValue("next"))
 
 	// Verify Admin Credentials using Bcrypt. Compare the username in constant
 	// time and always run the bcrypt check so response timing does not reveal
-	// whether the username was valid.
+	// whether the username was valid. bcrypt runs through the concurrency gate.
 	usernameOK := subtle.ConstantTimeCompare([]byte(username), []byte(s.cfg.Admin.Username)) == 1
-	passwordOK := bcrypt.CompareHashAndPassword([]byte(s.cfg.Admin.PasswordHash), []byte(password)) == nil
+	passwordOK, available := s.pwGate.Check(s.cfg.Admin.PasswordHash, password)
+	if !available {
+		w.Header().Set("Retry-After", "1")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		s.render(w, r, "login.html", PageData{CSRFToken: s.csrfToken(w, r), Next: next, Error: "Server busy. Please try again."})
+		return
+	}
 	if usernameOK && passwordOK {
 		token, err := s.sessions.Create()
 		if err != nil {
@@ -205,14 +274,20 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			MaxAge:   int(time.Duration(s.cfg.Admin.SessionHours) * time.Hour / time.Second),
 		})
 
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		s.authLimiter.Forget(ip) // only failed attempts should throttle an IP
+		log.Printf("admin login ok from %s", ip)
+		http.Redirect(w, r, nextOrAdmin(next), http.StatusSeeOther)
 		return
 	}
 
+	// IP only — the submitted username may be a mistyped password.
+	log.Printf("admin login FAILED from %s", ip)
 	data := PageData{
 		CSRFToken: s.csrfToken(w, r),
+		Next:      next,
 		Error:     "Invalid username or password.",
 	}
+	w.WriteHeader(http.StatusUnauthorized)
 	s.render(w, r, "login.html", data)
 }
 
@@ -306,13 +381,13 @@ func (s *Server) handleAdminItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, item := range allItems {
-		matchesSearch := searchQuery == "" || 
+		matchesSearch := searchQuery == "" ||
 			strings.Contains(strings.ToLower(item.Name), strings.ToLower(searchQuery)) ||
 			strings.Contains(strings.ToLower(item.ModelNumber), strings.ToLower(searchQuery)) ||
 			strings.Contains(strings.ToLower(item.SerialNumber), strings.ToLower(searchQuery))
 
 		matchesStatus := statusQuery == "" || item.Status == statusQuery
-		
+
 		matchesLocation := locationQuery == "" || (item.LocationID.Valid && item.LocationID.Int64 == locFilterID)
 
 		matchesTag := true
@@ -544,6 +619,7 @@ func (s *Server) handleItemCreate(w http.ResponseWriter, r *http.Request) {
 		CustomFields:   customFieldsJSON,
 		ImagePath:      imagePath,
 		ReceiptPath:    receiptPath,
+		PublicNote:     cleanText(r.FormValue("public_note"), 300),
 	}
 
 	// Insert item into database
@@ -685,6 +761,7 @@ func (s *Server) handleItemSave(w http.ResponseWriter, r *http.Request) {
 	item.WarrantyMonths = warranty
 	item.Supplier = supplier
 	item.CustomFields = customFieldsJSON
+	item.PublicNote = cleanText(r.FormValue("public_note"), 300)
 
 	err = s.db.UpdateItem(item, tagIDs)
 	if err != nil {
@@ -766,6 +843,7 @@ func (s *Server) handleItemPermanentDelete(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	s.dropExternalShortLink(id)
 	_ = s.db.DeleteItem(id)
 	http.Redirect(w, r, "/admin?show_removed=1&toast=Asset+deleted+forever+successfully&toast_type=success", http.StatusSeeOther)
 }
@@ -803,7 +881,7 @@ func (s *Server) handleAdminLocations(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLocationCreate(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	desc := r.FormValue("description")
-	
+
 	var parentID sql.NullInt64
 	if parentVal := r.FormValue("parent_id"); parentVal != "" {
 		id, _ := strconv.ParseInt(parentVal, 10, 64)
@@ -858,7 +936,7 @@ func (s *Server) handleLocationEdit(w http.ResponseWriter, r *http.Request) {
 
 	name := r.FormValue("name")
 	desc := r.FormValue("description")
-	
+
 	var parentID sql.NullInt64
 	if parentVal := r.FormValue("parent_id"); parentVal != "" {
 		pid, _ := strconv.ParseInt(parentVal, 10, 64)
@@ -1343,7 +1421,7 @@ func (s *Server) handlePrintLabels(w http.ResponseWriter, r *http.Request) {
 // ==========================================
 
 func (s *Server) saveUploadedFile(r *http.Request, fieldName string, isImage bool) (string, bool) {
-	file, header, err := r.FormFile(fieldName)
+	file, _, err := r.FormFile(fieldName)
 	if err != nil {
 		return "", false // No file uploaded or empty
 	}
@@ -1374,19 +1452,15 @@ func (s *Server) saveUploadedFile(r *http.Request, fieldName string, isImage boo
 		}
 	}
 
-	// Generate safe, randomized filename (UUID) keeping original extension
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if ext == "" {
-		// Fallback clean extensions
-		if mimeType == "application/pdf" {
-			ext = ".pdf"
-		} else if mimeType == "image/png" {
-			ext = ".png"
-		} else {
-			ext = ".jpg"
-		}
-	}
-	
+	// Name the file by a random UUID plus an extension derived from the sniffed
+	// content type — never from the client-supplied filename.
+	ext := map[string]string{
+		"image/jpeg":      ".jpg",
+		"image/png":       ".png",
+		"image/webp":      ".webp",
+		"application/pdf": ".pdf",
+	}[mimeType]
+
 	uniqueFilename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
 	outPath := filepath.Join(s.cfg.Upload.Dir, uniqueFilename)
 
@@ -1456,8 +1530,8 @@ func (s *Server) resolveRoomTag(locationID int64, tagIDs []int64) []int64 {
 // render automatically injects IsAuthenticated based on the session token
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data PageData) {
 	data.Lang = s.i18n.Lang()
-	cookie, err := r.Cookie("session")
-	data.IsAuthenticated = (err == nil && s.sessions.Valid(cookie.Value))
+	data.IsAuthenticated = s.isAuthenticated(r)
+	data.GuestLocations = s.cfg.Server.PublicLocations
 	if err := renderTemplate(w, name, data); err != nil {
 		log.Printf("Template execution error for %s: %v", name, err)
 		http.Error(w, "Template execution error", http.StatusInternalServerError)
@@ -1536,6 +1610,9 @@ func (s *Server) handlePublicFallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
+	if s.gateGuest(w, r, s.cfg.Server.PublicLocations) {
+		return
+	}
 	slugVal := r.PathValue("location_slug")
 	if slugVal == "" {
 		s.render404(w, r)
@@ -1553,8 +1630,11 @@ func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie, err := r.Cookie("session")
-	isAuth := (err == nil && s.sessions.Valid(cookie.Value))
+	isAuth := s.isAuthenticated(r)
+	if loc.LifecycleState == "removed" && !isAuth {
+		s.render404(w, r)
+		return
+	}
 
 	var childLocs []db.Location
 	var items []db.Item
@@ -1645,6 +1725,9 @@ func (s *Server) handleFolderView(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
+	if s.gateGuest(w, r, s.cfg.Server.PublicItems) {
+		return
+	}
 	locationSlug := r.PathValue("location_slug")
 	itemSlug := r.PathValue("item_slug")
 
@@ -1668,6 +1751,11 @@ func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
 		s.render404(w, r)
 		return
 	}
+	// A removed (soft-deleted) item is gone as far as visitors are concerned.
+	if item.LifecycleState == "removed" && !s.isAuthenticated(r) {
+		s.render404(w, r)
+		return
+	}
 
 	var correctLocationSlug string
 	if item.LocationID.Valid {
@@ -1682,6 +1770,14 @@ func (s *Server) handlePublicItemView(w http.ResponseWriter, r *http.Request) {
 
 	if correctLocationSlug != locationSlug {
 		http.Redirect(w, r, fmt.Sprintf("/%s/%s", correctLocationSlug, itemSlug), http.StatusMovedPermanently)
+		return
+	}
+
+	// Visitors who are not logged in get the "found item" card: the item's
+	// name, the owner's contact line and a report button — nothing else from
+	// the record.
+	if !s.isAuthenticated(r) {
+		s.renderFoundCard(w, r, item, link.Slug)
 		return
 	}
 
@@ -1770,4 +1866,3 @@ func (s *Server) handleLocationMove(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status":"success","message":"Location moved successfully"}`))
 }
-

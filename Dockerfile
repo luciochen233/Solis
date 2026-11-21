@@ -1,7 +1,7 @@
 # ==========================================
 # Build Stage
 # ==========================================
-FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 
 WORKDIR /build
 
