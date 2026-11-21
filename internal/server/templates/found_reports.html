@@ -19,7 +19,8 @@
                 <tr>
                     <th>{{T "foundadmin.col.time"}}</th>
                     <th>{{T "foundadmin.col.item"}}</th>
-                    <th>{{T "foundadmin.col.phone"}}</th>
+                    <th>{{T "foundadmin.col.contact"}}</th>
+                    <th>{{T "foundadmin.col.message"}}</th>
                     <th>{{T "foundadmin.col.gps"}}</th>
                     <th>{{T "foundadmin.col.ip"}}</th>
                     <th>{{T "foundadmin.col.emailed"}}</th>
@@ -34,7 +35,12 @@
                         {{if .ItemID.Valid}}<a href="/s/{{.Slug}}" style="color: var(--color-brand-primary); text-decoration: none;">{{.ItemName}}</a>{{else}}{{.ItemName}}{{end}}
                         <div style="font-family: monospace; font-size: 0.8rem; color: var(--color-text-light);">{{.Slug}}</div>
                     </td>
-                    <td data-label="{{T "foundadmin.col.phone"}}">{{if .Phone}}{{.Phone}}{{else}}<span style="color: var(--color-text-light);">—</span>{{end}}</td>
+                    <td data-label="{{T "foundadmin.col.contact"}}">
+                        {{if .Phone}}<div>{{.Phone}}</div>{{end}}
+                        {{if .Email}}<div><a href="mailto:{{.Email}}" style="color: var(--color-brand-primary);">{{.Email}}</a></div>{{end}}
+                        {{if and (not .Phone) (not .Email)}}<span style="color: var(--color-text-light);">—</span>{{end}}
+                    </td>
+                    <td data-label="{{T "foundadmin.col.message"}}" style="white-space: pre-wrap; max-width: 280px;">{{if .Message}}{{.Message}}{{else}}<span style="color: var(--color-text-light);">—</span>{{end}}</td>
                     <td data-label="{{T "foundadmin.col.gps"}}">
                         {{if .GPSLat.Valid}}
                             <a href="{{mapURL .GPSLat.Float64 .GPSLon.Float64}}" target="_blank" rel="noopener noreferrer" style="color: var(--color-brand-primary);">{{printf "%.5f, %.5f" .GPSLat.Float64 .GPSLon.Float64}}</a>
@@ -57,7 +63,7 @@
                     </td>
                 </tr>
                 {{else}}
-                <tr><td colspan="7" style="text-align: center; color: var(--color-text-light); padding: 2rem;">{{T "foundadmin.empty"}}</td></tr>
+                <tr><td colspan="8" style="text-align: center; color: var(--color-text-light); padding: 2rem;">{{T "foundadmin.empty"}}</td></tr>
                 {{end}}
             </tbody>
         </table>

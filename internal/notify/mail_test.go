@@ -11,7 +11,7 @@ import (
 func TestSendDeliversMessage(t *testing.T) {
 	host, port, got := smtptest.Start(t)
 	m := Mailer{Host: host, Port: port, From: "Solis <solis@example.test>"}
-	if err := m.Send("owner@example.test", "Found: Blue umbrella (AB12CD)", "line one\nline two\n"); err != nil {
+	if err := m.SendWithReplyTo("owner@example.test", "finder@example.test", "Found: Blue umbrella (AB12CD)", "line one\nline two\n"); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	select {
@@ -19,7 +19,7 @@ func TestSendDeliversMessage(t *testing.T) {
 		if msg.From != "solis@example.test" || msg.To != "owner@example.test" {
 			t.Errorf("envelope: from %q to %q", msg.From, msg.To)
 		}
-		for _, want := range []string{"Subject: Found: Blue umbrella (AB12CD)\r\n", "To: owner@example.test\r\n", "\r\n\r\nline one\r\nline two\r\n"} {
+		for _, want := range []string{"Subject: Found: Blue umbrella (AB12CD)\r\n", "To: owner@example.test\r\n", "Reply-To: finder@example.test\r\n", "\r\n\r\nline one\r\nline two\r\n"} {
 			if !strings.Contains(msg.Data, want) {
 				t.Errorf("message lacks %q:\n%s", want, msg.Data)
 			}
@@ -31,7 +31,7 @@ func TestSendDeliversMessage(t *testing.T) {
 
 // Nothing placed in a header may add a header of its own.
 func TestBuildMessageBlocksHeaderInjection(t *testing.T) {
-	msg := string(buildMessage("a@example.test", "b@example.test", "Found: x\r\nBcc: evil@example.test", "body", time.Unix(0, 0).UTC()))
+	msg := string(buildMessage("a@example.test", "b@example.test", "finder@example.test\r\nBcc: evil2@example.test", "Found: x\r\nBcc: evil@example.test", "body", time.Unix(0, 0).UTC()))
 	head, _, _ := strings.Cut(msg, "\r\n\r\n")
 	for _, line := range strings.Split(head, "\r\n") {
 		if strings.HasPrefix(strings.ToLower(line), "bcc:") {

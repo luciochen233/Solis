@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -67,6 +68,8 @@ func (s *Server) handleFoundReport(w http.ResponseWriter, r *http.Request) {
 		Slug:      link.Slug,
 		IP:        ip,
 		Phone:     cleanPhone(r.FormValue("phone")),
+		Email:     cleanEmail(r.FormValue("email")),
+		Message:   cleanMessage(r.FormValue("message"), 600),
 		UserAgent: cleanText(r.UserAgent(), 300),
 	}
 	// Precise location, present only if the finder's browser shared it.
@@ -98,8 +101,8 @@ func (s *Server) handleFoundReport(w http.ResponseWriter, r *http.Request) {
 	}
 	report.ID = id
 	report.CreatedAt = time.Now().UTC()
-	log.Printf("found report #%d: item %d (%s) from %s (gps shared: %v, phone given: %v)",
-		id, item.ID, link.Slug, ip, report.GPSLat.Valid, report.Phone != "")
+	log.Printf("found report #%d: item %d (%s) from %s (gps shared: %v, phone: %v, email: %v, message: %v)",
+		id, item.ID, link.Slug, ip, report.GPSLat.Valid, report.Phone != "", report.Email != "", report.Message != "")
 
 	s.notifyFound(report, itemURL)
 
@@ -121,7 +124,9 @@ func (s *Server) notifyFound(report *db.FoundReport, itemURL string) {
 	subject := fmt.Sprintf("Found: %s (%s)", report.ItemName, strings.ToUpper(report.Slug))
 	body := foundEmailBody(report, s.cfg.Server.BaseURL, itemURL)
 	go func() {
-		if err := s.mailer.Send(to, subject, body); err != nil {
+		// Reply-To the finder, when they left an address, so answering the
+		// notification reaches them directly.
+		if err := s.mailer.SendWithReplyTo(to, report.Email, subject, body); err != nil {
 			log.Printf("found report #%d: email failed: %v", report.ID, err)
 			return
 		}
@@ -138,7 +143,11 @@ func foundEmailBody(r *db.FoundReport, baseURL, itemURL string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Someone reported finding %q (label %s).\n\n", r.ItemName, strings.ToUpper(r.Slug))
 	fmt.Fprintf(&b, "Time:         %s UTC\n", r.CreatedAt.Format("2006-01-02 15:04:05"))
+	if r.Message != "" {
+		fmt.Fprintf(&b, "Message from the finder:\n%s\n\n", indent(r.Message, "    "))
+	}
 	fmt.Fprintf(&b, "Phone:        %s\n", orDash(r.Phone, "not provided"))
+	fmt.Fprintf(&b, "Email:        %s\n", orDash(r.Email, "not provided"))
 	if r.GPSLat.Valid {
 		fmt.Fprintf(&b, "GPS location: %s\n", formatCoords(r.GPSLat, r.GPSLon, r.GPSAccuracy))
 		fmt.Fprintf(&b, "Map:          %s\n", MapURL(r.GPSLat.Float64, r.GPSLon.Float64))
@@ -211,6 +220,48 @@ func cleanPhone(s string) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+// emailRe is deliberately strict: one address, no display name, nothing that
+// could carry a second header or address.
+var emailRe = regexp.MustCompile(`^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,180}\.[A-Za-z]{2,24}$`)
+
+// cleanEmail returns the address if it is a plain, single email address and
+// "" otherwise — it is stored, shown and used as a Reply-To header.
+func cleanEmail(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > 254 || !emailRe.MatchString(s) {
+		return ""
+	}
+	return s
+}
+
+// cleanMessage keeps a short multi-line note: line breaks survive, other
+// control characters are dropped, runs of blank lines collapse.
+func cleanMessage(s string, max int) string {
+	s = strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\r", "\n")
+	var b strings.Builder
+	n, newlines := 0, 0
+	for _, c := range s {
+		if c == '\n' {
+			if newlines++; newlines > 2 {
+				continue
+			}
+		} else if unicode.IsControl(c) {
+			continue
+		} else {
+			newlines = 0
+		}
+		b.WriteRune(c)
+		if n++; n >= max {
+			break
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func indent(s, prefix string) string {
+	return prefix + strings.ReplaceAll(s, "\n", "\n"+prefix)
 }
 
 // cleanText drops control characters and truncates to max runes.

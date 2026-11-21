@@ -84,6 +84,12 @@ func migrate(conn *sql.DB) error {
 	if err := ensureColumn(conn, "items", "public_note", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
+	// Found reports gained a message and an email address
+	for _, col := range []string{"email", "message"} {
+		if err := ensureColumn(conn, "found_reports", col, "TEXT NOT NULL DEFAULT ''"); err != nil {
+			return err
+		}
+	}
 
 	// Ensure lifecycle_state column exists in items, locations, tags, links (for existing databases)
 	for _, tableName := range []string{"items", "locations", "tags", "links"} {

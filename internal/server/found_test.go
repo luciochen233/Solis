@@ -83,6 +83,8 @@ func TestFoundReportIsStoredWithCleanedInput(t *testing.T) {
 
 	rec := postFound(mux, slug, "10.0.0.9", url.Values{
 		"phone":        {"+1 (555) 123-4567<script>alert(1)</script>"},
+		"email":        {"  finder@example.test "},
+		"message":      {"Left it at the front desk.\r\nAsk for Sam.\x00\x1b[31m\n\n\n\nThanks"},
 		"gps_lat":      {"37.774900"},
 		"gps_lon":      {"-122.419400"},
 		"gps_accuracy": {"12.5"},
@@ -112,6 +114,12 @@ func TestFoundReportIsStoredWithCleanedInput(t *testing.T) {
 	}
 	if r.Phone != "+1 (555) 123-4567(1)" {
 		t.Errorf("phone = %q, want only phone characters kept", r.Phone)
+	}
+	if r.Email != "finder@example.test" {
+		t.Errorf("email = %q", r.Email)
+	}
+	if r.Message != "Left it at the front desk.\nAsk for Sam.[31m\n\nThanks" {
+		t.Errorf("message = %q, want line breaks kept and control characters dropped", r.Message)
 	}
 	if !r.GPSLat.Valid || r.GPSLat.Float64 != 37.7749 || r.GPSLon.Float64 != -122.4194 || r.GPSAccuracy.Float64 != 12.5 {
 		t.Errorf("gps: %+v %+v %+v", r.GPSLat, r.GPSLon, r.GPSAccuracy)
@@ -216,10 +224,10 @@ func TestFoundReportEmailsOwnerOncePerWindow(t *testing.T) {
 	_, slug := addItem(t, s, "Field recorder")
 	mux := foundMux(s)
 
-	postFound(mux, slug, "10.0.0.9", url.Values{"phone": {"555 0100"}, "gps_lat": {"48.8584"}, "gps_lon": {"2.2945"}}, nil)
+	postFound(mux, slug, "10.0.0.9", url.Values{"phone": {"555 0100"}, "email": {"finder@example.test"}, "message": {"Meet at the cafe on Main St\nafter 6 pm"}, "gps_lat": {"48.8584"}, "gps_lon": {"2.2945"}}, nil)
 	select {
 	case msg := <-got:
-		for _, want := range []string{"Field recorder", strings.ToUpper(slug), "555 0100", "48.858400, 2.294500", "10.0.0.9", "Item page:    https://solis.example/default-room/" + slug, "Edit item:    https://solis.example/admin/items/edit/", "https://solis.example/admin/found"} {
+		for _, want := range []string{"Field recorder", strings.ToUpper(slug), "555 0100", "Reply-To: finder@example.test\r\n", "Email:        finder@example.test", "    Meet at the cafe on Main St\r\n    after 6 pm", "48.858400, 2.294500", "10.0.0.9", "Item page:    https://solis.example/default-room/" + slug, "Edit item:    https://solis.example/admin/items/edit/", "https://solis.example/admin/found"} {
 			if !strings.Contains(msg.Data, want) {
 				t.Errorf("email lacks %q:\n%s", want, msg.Data)
 			}
@@ -252,5 +260,49 @@ func TestFoundReportEmailsOwnerOncePerWindow(t *testing.T) {
 	}
 	if reports, _ := s.db.ListFoundReports(10); len(reports) != 2 {
 		t.Errorf("stored %d reports, want 2", len(reports))
+	}
+}
+
+// Only a single plain address is accepted: it is stored, shown and used as
+// the Reply-To header of the notification.
+func TestCleanEmailAndMessage(t *testing.T) {
+	for in, want := range map[string]string{
+		"finder@example.test":                     "finder@example.test",
+		" a.b+tag@mail.example.co ":               "a.b+tag@mail.example.co",
+		"":                                        "",
+		"not-an-email":                            "",
+		"a@b":                                     "",
+		"a@example.test, b@example.test":          "",
+		"Name <a@example.test>":                   "",
+		"a@example.test\r\nBcc: x@example.test":   "",
+		"a@example.test\nBcc: x@example.test":     "",
+		"a b@example.test":                        "",
+		strings.Repeat("a", 65) + "@example.test": "",
+	} {
+		if got := cleanEmail(in); got != want {
+			t.Errorf("cleanEmail(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := cleanMessage(strings.Repeat("x", 700), 600); len(got) != 600 {
+		t.Errorf("message not capped: %d characters", len(got))
+	}
+	if got := cleanMessage("  \n\n hello \n", 600); got != "hello" {
+		t.Errorf("message not trimmed: %q", got)
+	}
+}
+
+// The guest card offers the message box, both contact fields and the location
+// button, and does not ask for a location on its own.
+func TestFoundCardHasMessageContactsAndLocationButton(t *testing.T) {
+	s := webTestServer(t, nil)
+	_, slug := addItem(t, s, "Water bottle")
+	body := get(publicMux(s), "/default-room/"+slug).Body.String()
+	for _, want := range []string{`name="message"`, `name="phone"`, `name="email"`, `id="found-locate"`, `id="found-submit"`, `name="gps_lat"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("card lacks %s", want)
+		}
+	}
+	if strings.Contains(body, " required") {
+		t.Error("every field on the card must be optional")
 	}
 }

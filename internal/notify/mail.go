@@ -34,6 +34,12 @@ const timeout = 20 * time.Second
 // port must offer STARTTLS. The message (and any credentials) is never sent in
 // the clear, except to a mail server on this machine.
 func (m Mailer) Send(to, subject, body string) error {
+	return m.SendWithReplyTo(to, "", subject, body)
+}
+
+// SendWithReplyTo is Send with a Reply-To address, so answering the
+// notification writes to the person it is about. replyTo may be empty.
+func (m Mailer) SendWithReplyTo(to, replyTo, subject, body string) error {
 	if !m.Configured() {
 		return errors.New("smtp is not configured")
 	}
@@ -89,7 +95,7 @@ func (m Mailer) Send(to, subject, body string) error {
 	if err != nil {
 		return fmt.Errorf("DATA: %w", err)
 	}
-	if _, err := w.Write(buildMessage(m.From, to, subject, body, time.Now())); err != nil {
+	if _, err := w.Write(buildMessage(m.From, to, replyTo, subject, body, time.Now())); err != nil {
 		return fmt.Errorf("writing message: %w", err)
 	}
 	if err := w.Close(); err != nil {
@@ -100,11 +106,14 @@ func (m Mailer) Send(to, subject, body string) error {
 
 // buildMessage renders an RFC 5322 message. Header values are stripped of
 // line breaks so nothing user-supplied can inject extra headers.
-func buildMessage(from, to, subject, body string, now time.Time) []byte {
+func buildMessage(from, to, replyTo, subject, body string, now time.Time) []byte {
 	var b strings.Builder
 	header := func(k, v string) { b.WriteString(k + ": " + oneLine(v) + "\r\n") }
 	header("From", from)
 	header("To", to)
+	if replyTo != "" {
+		header("Reply-To", replyTo)
+	}
 	header("Subject", mime.QEncoding.Encode("utf-8", oneLine(subject)))
 	header("Date", now.Format(time.RFC1123Z))
 	header("MIME-Version", "1.0")

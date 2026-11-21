@@ -23,6 +23,8 @@ type FoundReport struct {
 	GPSLon      sql.NullFloat64
 	GPSAccuracy sql.NullFloat64 // metres
 	Phone       string          // only if the finder entered one
+	Email       string          // only if the finder entered one
+	Message     string          // free text from the finder, e.g. where to meet
 	UserAgent   string
 	Emailed     bool
 	CreatedAt   time.Time
@@ -32,10 +34,10 @@ func (d *DB) CreateFoundReport(r *FoundReport) (int64, error) {
 	res, err := d.Conn.Exec(`
 		INSERT INTO found_reports (
 			item_id, item_name, slug, ip, ip_country, ip_region, ip_city, ip_lat, ip_lon,
-			gps_lat, gps_lon, gps_accuracy, phone, user_agent
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			gps_lat, gps_lon, gps_accuracy, phone, email, message, user_agent
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		r.ItemID, r.ItemName, r.Slug, r.IP, r.IPCountry, r.IPRegion, r.IPCity, r.IPLat, r.IPLon,
-		r.GPSLat, r.GPSLon, r.GPSAccuracy, r.Phone, r.UserAgent,
+		r.GPSLat, r.GPSLon, r.GPSAccuracy, r.Phone, r.Email, r.Message, r.UserAgent,
 	)
 	if err != nil {
 		return 0, err
@@ -47,7 +49,7 @@ func (d *DB) CreateFoundReport(r *FoundReport) (int64, error) {
 func (d *DB) ListFoundReports(limit int) ([]FoundReport, error) {
 	rows, err := d.Conn.Query(`
 		SELECT id, item_id, item_name, slug, ip, ip_country, ip_region, ip_city, ip_lat, ip_lon,
-		       gps_lat, gps_lon, gps_accuracy, phone, user_agent, emailed, created_at
+		       gps_lat, gps_lon, gps_accuracy, phone, email, message, user_agent, emailed, created_at
 		FROM found_reports ORDER BY id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
@@ -60,7 +62,7 @@ func (d *DB) ListFoundReports(limit int) ([]FoundReport, error) {
 		var emailed int
 		var created string
 		if err := rows.Scan(&r.ID, &r.ItemID, &r.ItemName, &r.Slug, &r.IP, &r.IPCountry, &r.IPRegion, &r.IPCity,
-			&r.IPLat, &r.IPLon, &r.GPSLat, &r.GPSLon, &r.GPSAccuracy, &r.Phone, &r.UserAgent, &emailed, &created); err != nil {
+			&r.IPLat, &r.IPLon, &r.GPSLat, &r.GPSLon, &r.GPSAccuracy, &r.Phone, &r.Email, &r.Message, &r.UserAgent, &emailed, &created); err != nil {
 			return nil, err
 		}
 		r.Emailed = emailed != 0
