@@ -101,3 +101,13 @@ CREATE TABLE IF NOT EXISTS found_reports (
     emailed      INTEGER NOT NULL DEFAULT 0,
     created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- External short links (e.g. made by Glimmer) that item QR codes point to.
+CREATE TABLE IF NOT EXISTS item_short_urls (
+    item_id     INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+    remote_slug TEXT NOT NULL,
+    short_url   TEXT NOT NULL,
+    target_url  TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);

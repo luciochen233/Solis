@@ -76,3 +76,17 @@ port = 587
 username = ""
 password = ""
 from = ""
+
+[shortlinks]
+# What the QR codes on item labels point to.
+#   "builtin" — this server's own <base_url>/s/<slug> (default).
+#   "glimmer" — a short link made by a Glimmer instance that redirects to the
+#               address above. Glimmer's URLs are shorter, so the QR code is
+#               smaller. The built-in link keeps working either way, and if
+#               Glimmer cannot be reached the QR code falls back to it.
+provider = "builtin"
+# Where Glimmer's API is reached: its public URL, or http://127.0.0.1:<port>
+# when it runs on the same machine.
+glimmer_url = ""
+# This application's key from Glimmer's [[api.keys]] (not Glimmer's admin key).
+glimmer_api_key = ""

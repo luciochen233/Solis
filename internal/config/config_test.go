@@ -1,6 +1,10 @@
 package config
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestDefaultPasswordAndLocalOnly(t *testing.T) {
 	// The hash shipped in config.toml.example (password "admin").
@@ -25,6 +29,32 @@ func TestDefaultPasswordAndLocalOnly(t *testing.T) {
 		c.Server.BaseURL = baseURL
 		if got := c.LocalOnly(); got != want {
 			t.Errorf("LocalOnly(%q) = %v, want %v", baseURL, got, want)
+		}
+	}
+}
+
+func TestShortlinksProviderIsValidated(t *testing.T) {
+	load := func(body string) (*Config, error) {
+		path := filepath.Join(t.TempDir(), "config.toml")
+		if err := os.WriteFile(path, []byte("[admin]\npassword_hash = \"x\"\n"+body), 0600); err != nil {
+			t.Fatal(err)
+		}
+		return Load(path)
+	}
+	if cfg, err := load(""); err != nil || cfg.Shortlinks.Provider != "builtin" {
+		t.Errorf("default provider: %v %+v", err, cfg)
+	}
+	if _, err := load("[shortlinks]\nprovider = \"glimmer\"\nglimmer_url = \"http://127.0.0.1:8888\"\nglimmer_api_key = \"k\"\n"); err != nil {
+		t.Errorf("valid glimmer config rejected: %v", err)
+	}
+	for name, body := range map[string]string{
+		"unknown provider": "[shortlinks]\nprovider = \"bitly\"\n",
+		"missing url":      "[shortlinks]\nprovider = \"glimmer\"\nglimmer_api_key = \"k\"\n",
+		"missing key":      "[shortlinks]\nprovider = \"glimmer\"\nglimmer_url = \"http://127.0.0.1:8888\"\n",
+		"non-http url":     "[shortlinks]\nprovider = \"glimmer\"\nglimmer_url = \"ftp://x\"\nglimmer_api_key = \"k\"\n",
+	} {
+		if _, err := load(body); err == nil {
+			t.Errorf("%s: expected an error", name)
 		}
 	}
 }

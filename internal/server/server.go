@@ -23,6 +23,7 @@ import (
 	"Solis/internal/httpguard"
 	"Solis/internal/i18n"
 	"Solis/internal/notify"
+	"Solis/internal/shortlink"
 )
 
 type Server struct {
@@ -39,8 +40,11 @@ type Server struct {
 	foundAllLimiter  *httpguard.RateLimiter
 	foundMailLimiter *httpguard.RateLimiter
 	mailer           notify.Mailer
-	catalog          []config.CatalogCategory
-	i18n             *i18n.Translator
+	// glimmer is set when item QR codes should use Glimmer short links
+	// ([shortlinks] provider = "glimmer"); nil means the built-in /s/ links.
+	glimmer *shortlink.Glimmer
+	catalog []config.CatalogCategory
+	i18n    *i18n.Translator
 }
 
 func New(cfg *config.Config, database *db.DB) *Server {
@@ -57,7 +61,13 @@ func New(cfg *config.Config, database *db.DB) *Server {
 		translator, _ = i18n.New("en")
 	}
 
+	var glimmer *shortlink.Glimmer
+	if cfg.Shortlinks.Provider == "glimmer" {
+		glimmer = shortlink.NewGlimmer(cfg.Shortlinks.GlimmerURL, cfg.Shortlinks.GlimmerAPIKey)
+	}
+
 	return &Server{
+		glimmer:     glimmer,
 		cfg:         cfg,
 		db:          database,
 		sessions:    newSessionStore(ttl),

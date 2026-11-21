@@ -843,6 +843,7 @@ func (s *Server) handleItemPermanentDelete(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	s.dropExternalShortLink(id)
 	_ = s.db.DeleteItem(id)
 	http.Redirect(w, r, "/admin?show_removed=1&toast=Asset+deleted+forever+successfully&toast_type=success", http.StatusSeeOther)
 }

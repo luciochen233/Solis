@@ -12,14 +12,31 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig   `toml:"server"`
-	Admin    AdminConfig    `toml:"admin"`
-	MCP      MCPConfig      `toml:"mcp"`
-	Database DatabaseConfig `toml:"database"`
-	Slugs    SlugConfig     `toml:"slugs"`
-	Upload   UploadConfig   `toml:"upload"`
-	Found    FoundConfig    `toml:"found"`
-	SMTP     SMTPConfig     `toml:"smtp"`
+	Server     ServerConfig     `toml:"server"`
+	Admin      AdminConfig      `toml:"admin"`
+	MCP        MCPConfig        `toml:"mcp"`
+	Database   DatabaseConfig   `toml:"database"`
+	Slugs      SlugConfig       `toml:"slugs"`
+	Upload     UploadConfig     `toml:"upload"`
+	Found      FoundConfig      `toml:"found"`
+	SMTP       SMTPConfig       `toml:"smtp"`
+	Shortlinks ShortlinksConfig `toml:"shortlinks"`
+}
+
+// ShortlinksConfig chooses what the QR codes on item labels point to.
+//
+// With provider "builtin" (the default) a QR code encodes this server's own
+// <base_url>/s/<slug>. With provider "glimmer", Solis asks a Glimmer instance
+// for a short link to that address and encodes Glimmer's URL instead, which is
+// shorter and so gives a smaller QR code. The built-in link keeps working
+// either way, so labels printed earlier stay valid.
+type ShortlinksConfig struct {
+	Provider string `toml:"provider"` // "builtin" or "glimmer"
+	// GlimmerURL is where Glimmer's API is reached: its public URL, or
+	// http://127.0.0.1:<port> when it runs on the same machine.
+	GlimmerURL string `toml:"glimmer_url"`
+	// GlimmerAPIKey is this application's key from Glimmer's [[api.keys]].
+	GlimmerAPIKey string `toml:"glimmer_api_key"`
 }
 
 // FoundConfig controls the public "found item" page and its reports.
@@ -178,6 +195,21 @@ func Load(path string) (*Config, error) {
 
 	if cfg.Admin.PasswordHash == "" {
 		return nil, fmt.Errorf("admin.password_hash is required in config")
+	}
+
+	switch cfg.Shortlinks.Provider {
+	case "", "builtin":
+		cfg.Shortlinks.Provider = "builtin"
+	case "glimmer":
+		u, err := url.Parse(cfg.Shortlinks.GlimmerURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return nil, fmt.Errorf("shortlinks.glimmer_url must be an http(s) URL when provider is \"glimmer\"")
+		}
+		if cfg.Shortlinks.GlimmerAPIKey == "" {
+			return nil, fmt.Errorf("shortlinks.glimmer_api_key is required when provider is \"glimmer\"")
+		}
+	default:
+		return nil, fmt.Errorf("shortlinks.provider must be \"builtin\" or \"glimmer\", not %q", cfg.Shortlinks.Provider)
 	}
 
 	if cfg.Server.ProxyHops < 1 {

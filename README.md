@@ -155,6 +155,11 @@ length = 4                           # Number of characters in shortlinks
 dir = "./data/uploads"               # Upload target folder
 max_size_mb = 50                     # Maximum file upload size in MB
 
+[shortlinks]
+provider = "builtin"                 # "glimmer" = item QR codes use a Glimmer short link (smaller QR)
+glimmer_url = ""                     # Glimmer's API: public URL or http://127.0.0.1:<port>
+glimmer_api_key = ""                 # this app's key from Glimmer's [[api.keys]]
+
 [found]
 contact = ""                         # Shown on every item's public page, e.g. "If found, email lost@example.com"
 notify_to = ""                       # Email address that receives found-item reports
@@ -177,6 +182,7 @@ from = ""
 - **Behind a reverse proxy** set `host = "127.0.0.1"`, `trust_proxy = true` and the right `proxy_hops`. With `trust_proxy = false` behind a proxy every visitor appears as the proxy's address, so the per-IP login/MCP throttles collapse into one bucket that a single client can exhaust for everyone.
 - **CSRF.** State-changing requests need the per-page token *and* must come from this origin (`Sec-Fetch-Site` / `Origin` check), which also stops sibling subdomains. Non-browser clients (curl, MCP) are unaffected.
 - **MCP.** Prefer the API key. Basic auth with the admin password is accepted too, which makes `/mcp` a place where that password can be guessed (failed attempts are throttled per IP and logged) — keep that in mind if the admin UI itself sits behind an extra gate such as Cloudflare Access.
+- **Glimmer short links.** With `[shortlinks] provider = "glimmer"`, an item's QR code encodes a short link created through Glimmer's REST API that redirects to this server's own `/s/<slug>`. Solis uses its own application key there, which can only manage the links Solis created. The link is created the first time a QR code is requested, repointed if this server's address changes, and deleted when the item is permanently deleted. If Glimmer is unreachable the QR code falls back to the built-in link, and labels printed before the switch keep working because `/s/<slug>` never goes away.
 - **Shared hardening code.** `internal/httpguard` is kept byte-identical with the copy in [Glimmer](https://github.com/luciochen233/Glimmer); change it in one repository and copy it to the other.
 - A hardened systemd unit is provided in `deploy/solis.service`.
 
