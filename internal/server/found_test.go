@@ -219,7 +219,7 @@ func TestFoundReportEmailsOwnerOncePerWindow(t *testing.T) {
 	postFound(mux, slug, "10.0.0.9", url.Values{"phone": {"555 0100"}, "gps_lat": {"48.8584"}, "gps_lon": {"2.2945"}}, nil)
 	select {
 	case msg := <-got:
-		for _, want := range []string{"Field recorder", strings.ToUpper(slug), "555 0100", "48.858400, 2.294500", "10.0.0.9", "https://solis.example/default-room/" + slug, "https://solis.example/admin/found"} {
+		for _, want := range []string{"Field recorder", strings.ToUpper(slug), "555 0100", "48.858400, 2.294500", "10.0.0.9", "Item page:    https://solis.example/default-room/" + slug, "Edit item:    https://solis.example/admin/items/edit/", "https://solis.example/admin/found"} {
 			if !strings.Contains(msg.Data, want) {
 				t.Errorf("email lacks %q:\n%s", want, msg.Data)
 			}

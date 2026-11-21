@@ -151,7 +151,12 @@ func foundEmailBody(r *db.FoundReport, baseURL, itemURL string) string {
 		fmt.Fprintf(&b, "IP map:       %s (approximate)\n", MapURL(r.IPLat.Float64, r.IPLon.Float64))
 	}
 	fmt.Fprintf(&b, "Browser:      %s\n\n", orDash(r.UserAgent, "unknown"))
-	fmt.Fprintf(&b, "Item:         %s%s\n", base, itemURL)
+	// Links back into Solis. The item page shows the full record once you are
+	// logged in (a guest sees only the found-item card there).
+	fmt.Fprintf(&b, "Item page:    %s%s\n", base, itemURL)
+	if r.ItemID.Valid {
+		fmt.Fprintf(&b, "Edit item:    %s/admin/items/edit/%d\n", base, r.ItemID.Int64)
+	}
 	fmt.Fprintf(&b, "All reports:  %s/admin/found\n", base)
 	return b.String()
 }
