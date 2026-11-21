@@ -60,9 +60,8 @@ func webTestServer(t *testing.T, mutate func(*config.Config)) *Server {
 		pwGate:      httpguard.NewPasswordGate(1),
 		i18n:        translator,
 
-		foundIPLimiter:   httpguard.NewRateLimiter(0),
-		foundAllLimiter:  httpguard.NewRateLimiter(0),
-		foundMailLimiter: httpguard.NewRateLimiter(0),
+		foundIPLimiter:  httpguard.NewRateLimiter(0),
+		foundAllLimiter: httpguard.NewRateLimiter(0),
 	}
 }
 

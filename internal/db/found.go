@@ -55,7 +55,10 @@ func (d *DB) ListFoundReports(limit int) ([]FoundReport, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	return scanFoundReports(rows)
+}
 
+func scanFoundReports(rows *sql.Rows) ([]FoundReport, error) {
 	var out []FoundReport
 	for rows.Next() {
 		var r FoundReport
@@ -70,6 +73,21 @@ func (d *DB) ListFoundReports(limit int) ([]FoundReport, error) {
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// ListUnsentFoundReports returns reports created after since that have not
+// been emailed yet, oldest first.
+func (d *DB) ListUnsentFoundReports(since time.Time) ([]FoundReport, error) {
+	rows, err := d.Conn.Query(`
+		SELECT id, item_id, item_name, slug, ip, ip_country, ip_region, ip_city, ip_lat, ip_lon,
+		       gps_lat, gps_lon, gps_accuracy, phone, email, message, user_agent, emailed, created_at
+		FROM found_reports WHERE emailed = 0 AND created_at >= ? ORDER BY id ASC LIMIT 500`,
+		since.UTC().Format("2006-01-02 15:04:05"))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanFoundReports(rows)
 }
 
 func (d *DB) MarkFoundReportEmailed(id int64) error {

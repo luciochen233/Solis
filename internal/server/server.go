@@ -36,10 +36,13 @@ type Server struct {
 	pwGate      *httpguard.PasswordGate
 	// Found-item reports are public: these bound how many one address and
 	// everyone together can store, and how many emails one item can trigger.
-	foundIPLimiter   *httpguard.RateLimiter
-	foundAllLimiter  *httpguard.RateLimiter
-	foundMailLimiter *httpguard.RateLimiter
-	mailer           notify.Mailer
+	foundIPLimiter  *httpguard.RateLimiter
+	foundAllLimiter *httpguard.RateLimiter
+	// Notification pacing (see found_mail.go); zero values mean the defaults.
+	foundMailEvery    time.Duration
+	foundMailDailyCap int
+	foundMail         foundMailState
+	mailer            notify.Mailer
 	// glimmer is set when item QR codes should use Glimmer short links
 	// ([shortlinks] provider = "glimmer"); nil means the built-in /s/ links.
 	glimmer *shortlink.Glimmer
@@ -74,9 +77,8 @@ func New(cfg *config.Config, database *db.DB) *Server {
 		authLimiter: httpguard.NewRateLimiter(2 * time.Second),
 		pwGate:      httpguard.NewPasswordGate(runtime.NumCPU()),
 
-		foundIPLimiter:   httpguard.NewRateLimiter(time.Minute),
-		foundAllLimiter:  httpguard.NewRateLimiter(3 * time.Second),
-		foundMailLimiter: httpguard.NewRateLimiter(foundMailWindow),
+		foundIPLimiter:  httpguard.NewRateLimiter(time.Minute),
+		foundAllLimiter: httpguard.NewRateLimiter(3 * time.Second),
 		mailer: notify.Mailer{
 			Host:     cfg.SMTP.Host,
 			Port:     cfg.SMTP.Port,
@@ -127,6 +129,10 @@ func lowercasePath(next http.Handler) http.Handler {
 
 func (s *Server) Start() error {
 	initTemplates(s.i18n)
+
+	// Deliver any found-item reports that were stored but not emailed yet
+	// (for example because the server restarted in between).
+	s.kickFoundMail()
 
 	// Ensure upload directory exists
 	if err := os.MkdirAll(s.cfg.Upload.Dir, 0755); err != nil {

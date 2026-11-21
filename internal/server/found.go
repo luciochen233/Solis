@@ -104,70 +104,11 @@ func (s *Server) handleFoundReport(w http.ResponseWriter, r *http.Request) {
 	log.Printf("found report #%d: item %d (%s) from %s (gps shared: %v, phone: %v, email: %v, message: %v)",
 		id, item.ID, link.Slug, ip, report.GPSLat.Valid, report.Phone != "", report.Email != "", report.Message != "")
 
-	s.notifyFound(report, itemURL)
+	// Email the owner (straight away, or bundled with others for this item if
+	// one went out moments ago — see found_mail.go). Never dropped.
+	s.kickFoundMail()
 
 	http.Redirect(w, r, itemURL+"?reported=1", http.StatusSeeOther)
-}
-
-// notifyFound emails the owner about a report, in the background so a slow
-// mail server cannot hold up the finder's request. At most one email per item
-// per window; throttled reports are still stored and listed in the admin UI.
-func (s *Server) notifyFound(report *db.FoundReport, itemURL string) {
-	to := s.cfg.Found.NotifyTo
-	if to == "" || !s.mailer.Configured() {
-		return
-	}
-	if !s.foundMailLimiter.Allow("item:" + strconv.FormatInt(report.ItemID.Int64, 10)) {
-		log.Printf("found report #%d: email skipped (one per item per %s)", report.ID, foundMailWindow)
-		return
-	}
-	subject := fmt.Sprintf("Found: %s (%s)", report.ItemName, strings.ToUpper(report.Slug))
-	body := foundEmailBody(report, s.cfg.Server.BaseURL, itemURL)
-	go func() {
-		// Reply-To the finder, when they left an address, so answering the
-		// notification reaches them directly.
-		if err := s.mailer.SendWithReplyTo(to, report.Email, subject, body); err != nil {
-			log.Printf("found report #%d: email failed: %v", report.ID, err)
-			return
-		}
-		if err := s.db.MarkFoundReportEmailed(report.ID); err != nil {
-			log.Printf("found report #%d: marking emailed failed: %v", report.ID, err)
-		}
-	}()
-}
-
-const foundMailWindow = 10 * time.Minute
-
-func foundEmailBody(r *db.FoundReport, baseURL, itemURL string) string {
-	base := strings.TrimRight(baseURL, "/")
-	var b strings.Builder
-	fmt.Fprintf(&b, "Someone reported finding %q (label %s).\n\n", r.ItemName, strings.ToUpper(r.Slug))
-	fmt.Fprintf(&b, "Time:         %s UTC\n", r.CreatedAt.Format("2006-01-02 15:04:05"))
-	if r.Message != "" {
-		fmt.Fprintf(&b, "Message from the finder:\n%s\n\n", indent(r.Message, "    "))
-	}
-	fmt.Fprintf(&b, "Phone:        %s\n", orDash(r.Phone, "not provided"))
-	fmt.Fprintf(&b, "Email:        %s\n", orDash(r.Email, "not provided"))
-	if r.GPSLat.Valid {
-		fmt.Fprintf(&b, "GPS location: %s\n", formatCoords(r.GPSLat, r.GPSLon, r.GPSAccuracy))
-		fmt.Fprintf(&b, "Map:          %s\n", MapURL(r.GPSLat.Float64, r.GPSLon.Float64))
-	} else {
-		b.WriteString("GPS location: not shared\n")
-	}
-	fmt.Fprintf(&b, "IP address:   %s\n", r.IP)
-	fmt.Fprintf(&b, "IP location:  %s\n", orDash(IPPlace(r), "unknown"))
-	if r.IPLat.Valid {
-		fmt.Fprintf(&b, "IP map:       %s (approximate)\n", MapURL(r.IPLat.Float64, r.IPLon.Float64))
-	}
-	fmt.Fprintf(&b, "Browser:      %s\n\n", orDash(r.UserAgent, "unknown"))
-	// Links back into Solis. The item page shows the full record once you are
-	// logged in (a guest sees only the found-item card there).
-	fmt.Fprintf(&b, "Item page:    %s%s\n", base, itemURL)
-	if r.ItemID.Valid {
-		fmt.Fprintf(&b, "Edit item:    %s/admin/items/edit/%d\n", base, r.ItemID.Int64)
-	}
-	fmt.Fprintf(&b, "All reports:  %s/admin/found\n", base)
-	return b.String()
 }
 
 // ---- Admin ----

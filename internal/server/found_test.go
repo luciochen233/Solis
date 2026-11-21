@@ -212,51 +212,133 @@ func TestFoundReportRejectsWhatIsNotAnActiveItem(t *testing.T) {
 	}
 }
 
-// A stored report triggers one email per item per window.
-func TestFoundReportEmailsOwnerOncePerWindow(t *testing.T) {
+func waitMail(t *testing.T, got <-chan smtptest.Message, within time.Duration) smtptest.Message {
+	t.Helper()
+	select {
+	case msg := <-got:
+		return msg
+	case <-time.After(within):
+		t.Fatal("no email arrived")
+		return smtptest.Message{}
+	}
+}
+
+func waitAllEmailed(t *testing.T, s *Server, want int) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		reports, _ := s.db.ListFoundReports(50)
+		emailed := 0
+		for _, r := range reports {
+			if r.Emailed {
+				emailed++
+			}
+		}
+		if len(reports) == want && emailed == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%d of %d reports marked as emailed, want all %d", emailed, len(reports), want)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// The first report for an item is emailed at once. Reports that follow inside
+// the pacing window are not dropped: one further email carries all of them as
+// soon as the window ends.
+func TestFoundReportEmailsAreBundledNeverDropped(t *testing.T) {
 	host, port, got := smtptest.Start(t)
 	s := webTestServer(t, func(c *config.Config) {
 		c.Found.NotifyTo = "owner@example.test"
 		c.Server.BaseURL = "https://solis.example"
 	})
 	s.mailer = notify.Mailer{Host: host, Port: port, From: "solis@example.test"}
-	s.foundMailLimiter = httpguard.NewRateLimiter(time.Minute)
+	s.foundMailEvery = 500 * time.Millisecond
 	_, slug := addItem(t, s, "Field recorder")
 	mux := foundMux(s)
 
 	postFound(mux, slug, "10.0.0.9", url.Values{"phone": {"555 0100"}, "email": {"finder@example.test"}, "message": {"Meet at the cafe on Main St\nafter 6 pm"}, "gps_lat": {"48.8584"}, "gps_lon": {"2.2945"}}, nil)
-	select {
-	case msg := <-got:
-		for _, want := range []string{"Field recorder", strings.ToUpper(slug), "555 0100", "Reply-To: finder@example.test\r\n", "Email:        finder@example.test", "    Meet at the cafe on Main St\r\n    after 6 pm", "48.858400, 2.294500", "10.0.0.9", "Item page:    https://solis.example/default-room/" + slug, "Edit item:    https://solis.example/admin/items/edit/", "https://solis.example/admin/found"} {
-			if !strings.Contains(msg.Data, want) {
-				t.Errorf("email lacks %q:\n%s", want, msg.Data)
-			}
+	msg := waitMail(t, got, 5*time.Second)
+	for _, want := range []string{"Field recorder", strings.ToUpper(slug), "555 0100", "Reply-To: finder@example.test\r\n", "Email:        finder@example.test", "    Meet at the cafe on Main St\r\n    after 6 pm", "48.858400, 2.294500", "10.0.0.9", "Item page:    https://solis.example/s/" + slug, "Edit item:    https://solis.example/admin/items/edit/", "https://solis.example/admin/found"} {
+		if !strings.Contains(msg.Data, want) {
+			t.Errorf("email lacks %q:\n%s", want, msg.Data)
 		}
-		if msg.To != "owner@example.test" {
-			t.Errorf("recipient %q", msg.To)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no email sent")
 	}
-	// The emailed flag is set once delivery finished.
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		reports, _ := s.db.ListFoundReports(1)
-		if len(reports) == 1 && reports[0].Emailed {
-			break
+	if msg.To != "owner@example.test" {
+		t.Errorf("recipient %q", msg.To)
+	}
+	waitAllEmailed(t, s, 1)
+
+	// Two more for the same item right away: nothing is sent yet...
+	postFound(mux, slug, "10.0.0.10", url.Values{"message": {"second finder here"}}, nil)
+	postFound(mux, slug, "10.0.0.11", url.Values{"message": {"third finder here"}, "email": {"third@example.test"}}, nil)
+	select {
+	case early := <-got:
+		t.Fatalf("email sent inside the pacing window: %s", early.Data)
+	case <-time.After(150 * time.Millisecond):
+	}
+	// ...and then both arrive together.
+	bundle := waitMail(t, got, 5*time.Second)
+	for _, want := range []string{"2 reports about", "Report 1 of 2", "Report 2 of 2", "second finder here", "third finder here", "10.0.0.10", "10.0.0.11", "Reply-To: third@example.test\r\n"} {
+		if !strings.Contains(bundle.Data, want) {
+			t.Errorf("bundled email lacks %q:\n%s", want, bundle.Data)
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("report was not marked as emailed")
-		}
-		time.Sleep(20 * time.Millisecond)
+	}
+	waitAllEmailed(t, s, 3)
+	select {
+	case extra := <-got:
+		t.Fatalf("unexpected extra email: %s", extra.Data)
+	case <-time.After(700 * time.Millisecond):
+	}
+}
+
+// Reports stored while email could not be sent (not configured yet, server
+// restarted) go out on the next kick; different items get separate emails.
+func TestPendingFoundReportsAreSentLater(t *testing.T) {
+	s := webTestServer(t, func(c *config.Config) { c.Server.BaseURL = "https://solis.example" })
+	_, slugA := addItem(t, s, "Tent")
+	_, slugB := addItem(t, s, "Lantern")
+	mux := foundMux(s)
+	postFound(mux, slugA, "10.0.0.1", url.Values{"message": {"about the tent"}}, nil)
+	postFound(mux, slugB, "10.0.0.2", url.Values{"message": {"about the lantern"}}, nil)
+	if reports, _ := s.db.ListFoundReports(10); len(reports) != 2 || reports[0].Emailed || reports[1].Emailed {
+		t.Fatalf("setup: %+v", reports)
 	}
 
-	// A second report for the same item is stored but does not send again.
-	postFound(mux, slug, "10.0.0.10", url.Values{}, nil)
+	host, port, got := smtptest.Start(t)
+	s.cfg.Found.NotifyTo = "owner@example.test"
+	s.mailer = notify.Mailer{Host: host, Port: port, From: "solis@example.test"}
+	s.kickFoundMail() // what Start() does
+
+	first, second := waitMail(t, got, 5*time.Second), waitMail(t, got, 5*time.Second)
+	both := first.Data + second.Data
+	if !strings.Contains(both, "about the tent") || !strings.Contains(both, "about the lantern") {
+		t.Errorf("pending reports were not all delivered:\n%s", both)
+	}
+	if strings.Contains(first.Data, "about the tent") == strings.Contains(first.Data, "about the lantern") {
+		t.Errorf("each item should get its own email:\n%s", first.Data)
+	}
+	waitAllEmailed(t, s, 2)
+}
+
+// The daily limit stops emails, not reports.
+func TestFoundMailDailyCap(t *testing.T) {
+	host, port, got := smtptest.Start(t)
+	s := webTestServer(t, func(c *config.Config) { c.Found.NotifyTo = "owner@example.test" })
+	s.mailer = notify.Mailer{Host: host, Port: port, From: "solis@example.test"}
+	s.foundMailDailyCap = 1
+	_, slugA := addItem(t, s, "Kettle")
+	_, slugB := addItem(t, s, "Toaster")
+	mux := foundMux(s)
+
+	postFound(mux, slugA, "10.0.0.1", url.Values{}, nil)
+	waitMail(t, got, 5*time.Second)
+	postFound(mux, slugB, "10.0.0.2", url.Values{}, nil)
 	select {
 	case msg := <-got:
-		t.Fatalf("second email inside the window: %s", msg.Data)
-	case <-time.After(300 * time.Millisecond):
+		t.Fatalf("email sent beyond the daily limit: %s", msg.Data)
+	case <-time.After(400 * time.Millisecond):
 	}
 	if reports, _ := s.db.ListFoundReports(10); len(reports) != 2 {
 		t.Errorf("stored %d reports, want 2", len(reports))
