@@ -123,11 +123,16 @@ Customize your application by editing the generated `config.toml` file:
 
 ```toml
 [server]
+host = ""                            # Listen address ("" = all interfaces; "127.0.0.1" behind a local reverse proxy)
 port = 8889                          # Server port to bind to
 base_url = "http://localhost:8889"    # Public URL (used for generating QR codes/shortlinks)
 read_timeout = "5s"
 write_timeout = "10s"
 language = "en"                      # UI Language ("en" or "zh")
+trust_proxy = false                  # true behind a reverse proxy (required there for per-IP rate limits)
+proxy_hops = 1                       # trusted proxies in front: 1 = nginx/Caddy, 2 = Cloudflare -> nginx
+max_concurrent = 64                  # in-flight request cap (503 beyond it)
+public_pages = true                  # false = item/location pages require a login (see Security notes)
 
 [admin]
 username = "admin"
@@ -151,7 +156,16 @@ max_size_mb = 50                     # Maximum file upload size in MB
 ```
 
 > [!WARNING]
-> Always change the default `password_hash` in `config.toml` before exposing your server to the internet or local networks.
+> Always change the default `password_hash` in `config.toml` before exposing your server to the internet or local networks. Solis refuses to start with the default password unless `base_url` points at localhost.
+
+### Security notes
+
+- **Guest pages.** With `public_pages = true`, anyone who has (or guesses) an item URL sees that item's name, status and description, and a location URL shows the location's name and description — nothing else, and removed items are hidden. Item slugs are short and derived from the item ID, so they can be enumerated; set `public_pages = false` to send visitors who are not logged in to the login page instead (they return to the scanned page after signing in).
+- **Behind a reverse proxy** set `host = "127.0.0.1"`, `trust_proxy = true` and the right `proxy_hops`. With `trust_proxy = false` behind a proxy every visitor appears as the proxy's address, so the per-IP login/MCP throttles collapse into one bucket that a single client can exhaust for everyone.
+- **CSRF.** State-changing requests need the per-page token *and* must come from this origin (`Sec-Fetch-Site` / `Origin` check), which also stops sibling subdomains. Non-browser clients (curl, MCP) are unaffected.
+- **MCP.** Prefer the API key. Basic auth with the admin password is accepted too, which makes `/mcp` a place where that password can be guessed (failed attempts are throttled per IP and logged) — keep that in mind if the admin UI itself sits behind an extra gate such as Cloudflare Access.
+- **Shared hardening code.** `internal/httpguard` is kept byte-identical with the copy in [Glimmer](https://github.com/luciochen233/Glimmer); change it in one repository and copy it to the other.
+- A hardened systemd unit is provided in `deploy/solis.service`.
 
 ### MCP Access
 
@@ -237,6 +251,8 @@ A complete `Caddyfile` is provided in the repository root. To configure it:
 - `main.go` - Application entry point and configuration loading.
 - `internal/db/` - SQLite database drivers, schema creations, and CRUD operations.
 - `internal/server/` - Routing handlers, HTTP middleware, session managers, and custom static resources.
+- `internal/httpguard/` - HTTP hardening shared verbatim with Glimmer (client IP, rate limits, cross-origin guard, body caps).
+- `deploy/solis.service` - Hardened systemd unit.
 - `internal/server/templates/` - Modern HTMX template files.
 - `internal/slug/` - Clean and collision-resistant slug generators.
 - `config.toml` - Core configuration specifications.

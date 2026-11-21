@@ -1,17 +1,38 @@
 # Solis Configuration Template
 
 [server]
+# Address to listen on. Empty = all interfaces. Set to "127.0.0.1" when a
+# reverse proxy on the same machine (nginx, Caddy) fronts Solis, so the app
+# cannot be reached around the proxy.
+host = ""
 port = 8889
 base_url = "http://localhost:8889"
 read_timeout = "5s"
 write_timeout = "10s"
+# Only enable behind a trusted reverse proxy that sets X-Forwarded-For. When
+# false, the real connection IP is used for rate limiting (cannot be spoofed).
+# Behind a proxy it MUST be true, or every visitor shares one rate-limit bucket.
+trust_proxy = false
+# Number of trusted proxies in front of Solis (only used when trust_proxy is
+# true). The client IP is read that many entries from the RIGHT of
+# X-Forwarded-For. 1 = a single proxy (nginx or Caddy); 2 = Cloudflare -> nginx.
+proxy_hops = 1
+# Maximum number of in-flight HTTP requests before returning 503.
+max_concurrent = 64
+# Whether visitors who are NOT logged in can open item pages (name, status and
+# description only) and location pages by URL — e.g. someone scanning a QR
+# label. Item slugs are short and derived from the item ID, so anyone can
+# enumerate them. Set to false to require a login for those pages; custom short
+# links stay public either way.
+public_pages = true
 # Language for the UI. Supported: "en" (English), "zh" (Chinese).
 # Add new languages by creating a JSON file in internal/i18n/locales/.
 language = "en"
 
 [admin]
 username = "admin"
-# Default password: "admin" — CHANGE THIS IN PRODUCTION!
+# Default password: "admin" — CHANGE THIS! Solis refuses to start with this
+# hash unless base_url points at localhost.
 # Generate a new bcrypt hash using: ./solis --hash-password "your-password"
 password_hash = "$2a$10$WXBoF7ZB7fIRl5smdGH9seqlNbXWiCS7ZbGNk0ONb9xjS8499gBpu"
 session_hours = 24

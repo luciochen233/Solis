@@ -2,10 +2,13 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Config struct {
@@ -18,11 +21,31 @@ type Config struct {
 }
 
 type ServerConfig struct {
+	// Host is the address to listen on. Empty (the default) listens on all
+	// interfaces; set it to 127.0.0.1 when a reverse proxy on the same machine
+	// is the only thing that should reach the app.
+	Host         string `toml:"host"`
 	Port         int    `toml:"port"`
 	BaseURL      string `toml:"base_url"`
 	ReadTimeout  string `toml:"read_timeout"`
 	WriteTimeout string `toml:"write_timeout"`
 	Language     string `toml:"language"`
+	// TrustProxy controls whether X-Forwarded-For / X-Real-Ip are honoured for
+	// client IP detection. Only enable behind a trusted reverse proxy;
+	// otherwise a client can spoof them to bypass rate limiting.
+	TrustProxy bool `toml:"trust_proxy"`
+	// ProxyHops is how many trusted proxies sit in front of the server when
+	// TrustProxy is on (default 1). The client IP is taken that many entries
+	// from the right of X-Forwarded-For. Use 2 for Cloudflare -> nginx -> app.
+	ProxyHops int `toml:"proxy_hops"`
+	// MaxConcurrent caps the number of in-flight requests (503 beyond it).
+	MaxConcurrent int `toml:"max_concurrent"`
+	// PublicPages controls whether visitors who are not logged in can open
+	// item pages (name, status and description only) and location pages by
+	// URL, e.g. by scanning a QR label. Item slugs are short and derived from
+	// the item ID, so they can be enumerated: set this to false to require a
+	// login for those pages. Custom short links always stay public.
+	PublicPages bool `toml:"public_pages"`
 }
 
 type AdminConfig struct {
@@ -65,14 +88,39 @@ func (c *ServerConfig) WriteTimeoutDuration() time.Duration {
 	return d
 }
 
+// UsesDefaultPassword reports whether the admin password is still the
+// well-known default ("admin") that ships in config.toml.example.
+func (c *Config) UsesDefaultPassword() bool {
+	return bcrypt.CompareHashAndPassword([]byte(c.Admin.PasswordHash), []byte("admin")) == nil
+}
+
+// LocalOnly reports whether base_url points at this machine (localhost or a
+// loopback address), i.e. the instance is not meant to be reached by others.
+func (c *Config) LocalOnly() bool {
+	u, err := url.Parse(c.Server.BaseURL)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		Server: ServerConfig{
-			Port:         8889,
-			BaseURL:      "http://localhost:8889",
-			ReadTimeout:  "5s",
-			WriteTimeout: "10s",
-			Language:     "en",
+			Port:          8889,
+			BaseURL:       "http://localhost:8889",
+			ReadTimeout:   "5s",
+			WriteTimeout:  "10s",
+			Language:      "en",
+			TrustProxy:    false,
+			ProxyHops:     1,
+			MaxConcurrent: 64,
+			PublicPages:   true,
 		},
 		Admin: AdminConfig{
 			Username:     "admin",
@@ -101,6 +149,16 @@ func Load(path string) (*Config, error) {
 
 	if cfg.Admin.PasswordHash == "" {
 		return nil, fmt.Errorf("admin.password_hash is required in config")
+	}
+
+	if cfg.Server.ProxyHops < 1 {
+		cfg.Server.ProxyHops = 1
+	}
+	if cfg.Server.MaxConcurrent <= 0 {
+		cfg.Server.MaxConcurrent = 64
+	}
+	if cfg.Upload.MaxSize <= 0 {
+		cfg.Upload.MaxSize = 10
 	}
 
 	return cfg, nil

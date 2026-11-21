@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -12,8 +13,6 @@ import (
 	"time"
 
 	"Solis/internal/db"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 const mcpProtocolVersion = "2025-06-18"
@@ -47,16 +46,38 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		writeMCPHTTPError(w, nil, http.StatusForbidden, -32000, "Forbidden origin")
 		return
 	}
-	// Rate limit credential guessing: IPs with a recent failed auth attempt
-	// are blocked before credentials are even checked. Successful requests
-	// are never throttled.
-	ip := clientIP(r)
-	if s.limiter.Blocked(ip) {
-		writeMCPHTTPError(w, nil, http.StatusTooManyRequests, -32000, "Too many failed authentication attempts. Please wait.")
-		return
+	// Fast path: API key (constant-time, no bcrypt). Basic auth with the admin
+	// password is expensive and guessable, so each attempt first reserves the
+	// IP's rate-limit window — concurrent guesses from one IP cannot race past
+	// it — and only a successful login releases it again. Failures therefore
+	// throttle the IP; successful clients are not slowed down.
+	ip := s.clientIP(r)
+	authorized := s.mcpAPIKeyAuth(r)
+	if !authorized {
+		if username, password, hasBasic := r.BasicAuth(); hasBasic {
+			if !s.authLimiter.Allow(ip) {
+				w.Header().Set("Retry-After", "2")
+				writeMCPHTTPError(w, nil, http.StatusTooManyRequests, -32000, "Too many failed authentication attempts. Please wait.")
+				return
+			}
+			usernameOK := constantTimeEqual(username, s.cfg.Admin.Username)
+			passwordOK, available := s.pwGate.Check(s.cfg.Admin.PasswordHash, password)
+			if !available {
+				s.authLimiter.Forget(ip)
+				w.Header().Set("Retry-After", "1")
+				writeMCPHTTPError(w, nil, http.StatusServiceUnavailable, -32000, "Server busy")
+				return
+			}
+			if usernameOK && passwordOK {
+				s.authLimiter.Forget(ip)
+				authorized = true
+			}
+		}
 	}
-	if !s.authorizeMCP(r) {
-		s.limiter.Record(ip)
+	if !authorized {
+		if r.Header.Get("Authorization") != "" || r.Header.Get("X-API-Key") != "" {
+			log.Printf("mcp auth FAILED from %s", ip)
+		}
 		w.Header().Set("WWW-Authenticate", `Bearer realm="Solis MCP", Basic realm="Solis MCP"`)
 		writeMCPHTTPError(w, nil, http.StatusUnauthorized, -32000, "Unauthorized")
 		return
@@ -107,25 +128,19 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) authorizeMCP(r *http.Request) bool {
-	if s.cfg.MCP.APIKey != "" {
-		if token := bearerToken(r.Header.Get("Authorization")); token != "" && constantTimeEqual(token, s.cfg.MCP.APIKey) {
-			return true
-		}
-		if token := r.Header.Get("X-API-Key"); token != "" && constantTimeEqual(token, s.cfg.MCP.APIKey) {
-			return true
-		}
-	}
-
-	username, password, ok := r.BasicAuth()
-	if !ok {
+// mcpAPIKeyAuth checks the configured API key via constant-time comparison.
+// Returns false (rather than matching) when no API key is configured.
+func (s *Server) mcpAPIKeyAuth(r *http.Request) bool {
+	if s.cfg.MCP.APIKey == "" {
 		return false
 	}
-	// Constant-time username check and unconditional bcrypt comparison so
-	// response timing does not reveal whether the username was valid.
-	usernameOK := constantTimeEqual(username, s.cfg.Admin.Username)
-	passwordOK := bcrypt.CompareHashAndPassword([]byte(s.cfg.Admin.PasswordHash), []byte(password)) == nil
-	return usernameOK && passwordOK
+	if token := bearerToken(r.Header.Get("Authorization")); token != "" && constantTimeEqual(token, s.cfg.MCP.APIKey) {
+		return true
+	}
+	if token := r.Header.Get("X-API-Key"); token != "" && constantTimeEqual(token, s.cfg.MCP.APIKey) {
+		return true
+	}
+	return false
 }
 
 func (s *Server) validMCPOrigin(r *http.Request) bool {

@@ -1,18 +1,26 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"Solis/internal/config"
 	"Solis/internal/db"
+	"Solis/internal/httpguard"
 	"Solis/internal/i18n"
 )
 
@@ -20,9 +28,12 @@ type Server struct {
 	cfg      *config.Config
 	db       *db.DB
 	sessions *sessionStore
-	limiter  *rateLimiter
-	catalog  []config.CatalogCategory
-	i18n     *i18n.Translator
+	// authLimiter throttles credential attempts (admin login, MCP basic auth)
+	// per client IP; pwGate bounds concurrent bcrypt work.
+	authLimiter *httpguard.RateLimiter
+	pwGate      *httpguard.PasswordGate
+	catalog     []config.CatalogCategory
+	i18n        *i18n.Translator
 }
 
 func New(cfg *config.Config, database *db.DB) *Server {
@@ -40,12 +51,13 @@ func New(cfg *config.Config, database *db.DB) *Server {
 	}
 
 	return &Server{
-		cfg:      cfg,
-		db:       database,
-		sessions: newSessionStore(ttl),
-		limiter:  newRateLimiter(2 * time.Second),
-		catalog:  cat,
-		i18n:     translator,
+		cfg:         cfg,
+		db:          database,
+		sessions:    newSessionStore(ttl),
+		authLimiter: httpguard.NewRateLimiter(2 * time.Second),
+		pwGate:      httpguard.NewPasswordGate(runtime.NumCPU()),
+		catalog:     cat,
+		i18n:        translator,
 	}
 }
 
@@ -64,7 +76,11 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
 				"font-src 'self' https://fonts.gstatic.com; "+
 				"img-src 'self' data:; "+
-				"connect-src 'self';")
+				"connect-src 'self'; "+
+				"object-src 'none'; "+
+				"base-uri 'none'; "+
+				"form-action 'self'; "+
+				"frame-ancestors 'none'")
 
 		next.ServeHTTP(w, r)
 	})
@@ -74,21 +90,11 @@ func (s *Server) isHTTPS() bool {
 	return strings.HasPrefix(s.cfg.Server.BaseURL, "https")
 }
 
-// lowercasePath normalises URL paths to lowercase so that short links are case-insensitive.
-// Admin, uploads, and static routes are excluded to preserve asset names.
+// lowercasePath normalises URL paths to lowercase so that short links (and the
+// upper-case URLs encoded in QR labels) are case-insensitive. Admin, uploads,
+// and static routes are excluded to preserve asset names.
 func lowercasePath(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		lower := strings.ToLower(r.URL.Path)
-		if lower != r.URL.Path &&
-			!strings.HasPrefix(r.URL.Path, "/static/") &&
-			!strings.HasPrefix(lower, "/admin") &&
-			!strings.HasPrefix(r.URL.Path, "/uploads/") {
-			r.URL.Path = lower
-			http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+	return httpguard.LowercasePath(next, "/static/", "/admin", "/uploads/")
 }
 
 func (s *Server) Start() error {
@@ -103,7 +109,7 @@ func (s *Server) Start() error {
 
 	// 1. Embedded static files
 	staticSub, _ := fs.Sub(staticFS, "static")
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(httpguard.NoDirFS{FS: http.FS(staticSub)})))
 
 	// 2. Safe Uploads Serving
 	mux.HandleFunc("GET /uploads/", s.handleServeUploads)
@@ -125,9 +131,9 @@ func (s *Server) Start() error {
 	// 6. Admin items management (HTMX & standard CRUD)
 	mux.HandleFunc("GET /admin", s.requireAuth(s.handleAdminItems))
 	mux.HandleFunc("GET /admin/items/new", s.requireAuth(s.handleItemNew))
-	mux.HandleFunc("POST /admin/items/new", s.requireAuth(s.requireCSRF(s.handleItemCreate)))
+	mux.HandleFunc("POST /admin/items/new", s.requireAuth(s.limitUpload(s.requireCSRF(s.handleItemCreate))))
 	mux.HandleFunc("GET /admin/items/edit/{id}", s.requireAuth(s.handleItemEdit))
-	mux.HandleFunc("POST /admin/items/edit/{id}", s.requireAuth(s.requireCSRF(s.handleItemSave)))
+	mux.HandleFunc("POST /admin/items/edit/{id}", s.requireAuth(s.limitUpload(s.requireCSRF(s.handleItemSave))))
 	mux.HandleFunc("POST /admin/items/delete/{id}", s.requireAuth(s.requireCSRF(s.handleItemRemove)))
 	mux.HandleFunc("POST /admin/items/remove/{id}", s.requireAuth(s.requireCSRF(s.handleItemRemove)))
 	mux.HandleFunc("POST /admin/items/archive/{id}", s.requireAuth(s.requireCSRF(s.handleItemArchive)))
@@ -188,17 +194,55 @@ func (s *Server) Start() error {
 	mux.HandleFunc("POST /admin/items/move", s.requireAuth(s.requireCSRF(s.handleItemMove)))
 	mux.HandleFunc("POST /admin/locations/move", s.requireAuth(s.requireCSRF(s.handleLocationMove)))
 
-	// Listen and serve
-	addr := fmt.Sprintf(":%d", s.cfg.Server.Port)
+	// Middleware chain (outermost first):
+	//   LimitConcurrency — cap in-flight requests
+	//   LimitBody        — 1 MB cap on ordinary POST bodies (uploads: limitUpload)
+	//   lowercasePath    — normalise case for QR URLs
+	//   securityHeaders  — CSP + hardening headers
+	//   CrossOriginGuard — reject cross-origin state-changing browser requests
+	const maxBodyBytes = 1 << 20
+	handler := httpguard.LimitConcurrency(s.cfg.Server.MaxConcurrent,
+		httpguard.LimitBody(maxBodyBytes, isUploadRoute,
+			lowercasePath(s.securityHeaders(
+				httpguard.CrossOriginGuard(s.cfg.Server.BaseURL, mux)))))
+
+	// Empty host = all interfaces. Behind a reverse proxy set server.host to
+	// 127.0.0.1 so the app (and its trust in X-Forwarded-For) is only
+	// reachable through the proxy.
+	addr := net.JoinHostPort(s.cfg.Server.Host, strconv.Itoa(s.cfg.Server.Port))
 	srv := &http.Server{
-		Addr:         addr,
-		Handler:      lowercasePath(s.securityHeaders(mux)),
-		ReadTimeout:  s.cfg.Server.ReadTimeoutDuration(),
-		WriteTimeout: s.cfg.Server.WriteTimeoutDuration(),
+		Addr:              addr,
+		Handler:           handler,
+		ReadTimeout:       s.cfg.Server.ReadTimeoutDuration(),
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      s.cfg.Server.WriteTimeoutDuration(),
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 16, // 64 KB
 	}
 
-	log.Printf("Solis running on http://localhost:%d (Base URL: %s)", s.cfg.Server.Port, s.cfg.Server.BaseURL)
-	return srv.ListenAndServe()
+	log.Printf("Solis listening on %s (Base URL: %s)", addr, s.cfg.Server.BaseURL)
+
+	// Graceful shutdown: on SIGINT/SIGTERM stop accepting connections and let
+	// in-flight requests drain, so the deferred database close in main runs
+	// instead of the process being killed mid-write.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.ListenAndServe() }()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		log.Printf("Shutting down...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return nil
+	}
 }
 
 // handleServeUploads serving local photos/receipts safely

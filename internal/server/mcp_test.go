@@ -10,6 +10,7 @@ import (
 
 	"Solis/internal/config"
 	"Solis/internal/db"
+	"Solis/internal/httpguard"
 )
 
 func TestMCPRequiresAuthentication(t *testing.T) {
@@ -18,7 +19,8 @@ func TestMCPRequiresAuthentication(t *testing.T) {
 			Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
 			MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
 		},
-		limiter: newRateLimiter(2 * time.Second),
+		authLimiter: httpguard.NewRateLimiter(2 * time.Second),
+		pwGate:      httpguard.NewPasswordGate(1),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
@@ -37,7 +39,8 @@ func TestMCPListsToolsWithAPIKey(t *testing.T) {
 			Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
 			MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
 		},
-		limiter: newRateLimiter(2 * time.Second),
+		authLimiter: httpguard.NewRateLimiter(2 * time.Second),
+		pwGate:      httpguard.NewPasswordGate(1),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
@@ -60,7 +63,8 @@ func TestMCPRejectsUnexpectedOrigin(t *testing.T) {
 			Server: config.ServerConfig{BaseURL: "http://localhost:8889"},
 			MCP:    config.MCPConfig{Enabled: true, APIKey: "test-key"},
 		},
-		limiter: newRateLimiter(2 * time.Second),
+		authLimiter: httpguard.NewRateLimiter(2 * time.Second),
+		pwGate:      httpguard.NewPasswordGate(1),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))

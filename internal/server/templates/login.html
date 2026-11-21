@@ -25,6 +25,7 @@
 
         <form action="/admin/login" method="POST">
             <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            {{if .Next}}<input type="hidden" name="next" value="{{.Next}}">{{end}}
 
             <div class="form-group">
                 <label for="username" class="form-label">{{T "login.username"}}</label>
