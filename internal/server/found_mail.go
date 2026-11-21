@@ -37,7 +37,7 @@ type foundMailState struct {
 }
 
 const (
-	defaultFoundMailEvery    = 2 * time.Minute
+	defaultFoundMailEvery    = 10 * time.Minute
 	defaultFoundMailDailyCap = 200
 	foundMailRetryAfter      = 15 * time.Minute // after a delivery failure
 )
